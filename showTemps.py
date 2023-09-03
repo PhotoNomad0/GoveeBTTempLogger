@@ -72,14 +72,14 @@ while True:
             measurement = read_last_line(file)
             if measurement:
                 data = measurement.strip().split('\t')
-                timeStr = datetime.strptime(data[0], date_format)
+                time_ = datetime.strptime(data[0], date_format)
                 temp = float(data[1])
                 temp = convert_celsius_to_fahrenheit(temp)
                 tempStr = "{:.1f}".format(temp) + "F"
                 humidity = float(data[2])
                 humidityStr = "{:.0f}".format(humidity) + "%"
                 battery = data[3] + '%'
-                line = tempStr + '\t' + humidityStr + '\t' + battery + '\t' + sensorLabel + '\t' + timeStr
+                line = tempStr + '\t' + humidityStr + '\t' + battery + '\t' + sensorLabel + '\t' + time_.strftime(date_format)
                 print(line)
 
     time.sleep(60)
