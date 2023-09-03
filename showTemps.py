@@ -56,7 +56,7 @@ print("Data Files in path", folder_path, ":")
 files = list_txt_files(folder_path)
 
 while True:
-    print("\n\n===================================================")
+    print("\n===================================================\n")
     for file in files:
         filename = os.path.basename(file)
         parts = filename.split('-')
