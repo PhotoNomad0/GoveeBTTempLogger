@@ -3,6 +3,7 @@
 import os
 import sys
 import glob
+import time
 
 def list_txt_files(folder_path):
     return glob.glob(f"{folder_path}/*.txt")
@@ -50,26 +51,30 @@ print("Sensors", sensors)
 
 print("Data Files in path", folder_path, ":")
 files = list_txt_files(folder_path)
-for file in files:
-    filename = os.path.basename(file)
-    parts = filename.split('-')
-    sensorId = parts[1]
-    sensorLabel = sensorId
-    if sensorId in sensors:
-        if 'label' in sensors[sensorId]:
-            sensorLabel = sensors[sensorId]['label']
-    else:
-        sensors[sensorId] = {}
 
-    if len(sensorId) == 12:
-        measurement = read_last_line(file)
-        if measurement:
-            data = measurement.strip().split('\t')
-            temp = float(data[1])
-            temp = convert_celsius_to_fahrenheit(temp)
-            tempStr = "{:.1f}".format(temp) + "F"
-            humidity = float(data[2])
-            humidityStr = "{:.0f}".format(humidity) + "%"
-            battery = data[3] + '%'
-            line = tempStr + '\t' + humidityStr + '\t' + battery + '\t' + sensorLabel
-            print(line)
+while True:
+    for file in files:
+        filename = os.path.basename(file)
+        parts = filename.split('-')
+        sensorId = parts[1]
+        sensorLabel = sensorId
+        if sensorId in sensors:
+            if 'label' in sensors[sensorId]:
+                sensorLabel = sensors[sensorId]['label']
+        else:
+            sensors[sensorId] = {}
+
+        if len(sensorId) == 12:
+            measurement = read_last_line(file)
+            if measurement:
+                data = measurement.strip().split('\t')
+                temp = float(data[1])
+                temp = convert_celsius_to_fahrenheit(temp)
+                tempStr = "{:.1f}".format(temp) + "F"
+                humidity = float(data[2])
+                humidityStr = "{:.0f}".format(humidity) + "%"
+                battery = data[3] + '%'
+                line = tempStr + '\t' + humidityStr + '\t' + battery + '\t' + sensorLabel
+                print(line)
+
+    time.sleep(60)
