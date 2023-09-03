@@ -70,4 +70,5 @@ for file in files:
             tempStr = "{:.1f}".format(temp) + "F"
             humidity = data[2] + '%'
             battery = data[3] + '%'
-            print(sensorLabel, [tempStr, humidity, battery])
+            line = tempStr + '\t' + humidity + '\t' + battery + '\t' + sensorLabel
+            print(line)
