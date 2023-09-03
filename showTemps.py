@@ -4,7 +4,7 @@ import os
 import sys
 import glob
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 date_format = "%Y-%m-%d %H:%M:%S"
 
@@ -72,14 +72,15 @@ while True:
             measurement = read_last_line(file)
             if measurement:
                 data = measurement.strip().split('\t')
-                time_ = datetime.strptime(data[0], date_format)
+                time_ = datetime.strptime(data[0], date_format).replace(tzinfo=timezone.utc)
                 temp = float(data[1])
                 temp = convert_celsius_to_fahrenheit(temp)
                 tempStr = "{:.1f}".format(temp)
                 humidity = float(data[2])
                 humidityStr = "{:.0f}".format(humidity)
                 battery = data[3]
-                line = tempStr + 'F\t' + humidityStr + '%\t' + battery + '%\t' + sensorLabel + '\t' + time_.strftime(date_format)
+                localTime = time_.astimezone().strftime(date_format)
+                line = tempStr + 'F\t' + humidityStr + '%\t' + battery + '%\t' + sensorLabel + '\t' + localTime
                 print(line)
                 sensors[sensorId]['date'] = time_
                 sensors[sensorId]['temp'] = tempStr
