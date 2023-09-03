@@ -75,11 +75,15 @@ while True:
                 time_ = datetime.strptime(data[0], date_format)
                 temp = float(data[1])
                 temp = convert_celsius_to_fahrenheit(temp)
-                tempStr = "{:.1f}".format(temp) + "F"
+                tempStr = "{:.1f}".format(temp)
                 humidity = float(data[2])
-                humidityStr = "{:.0f}".format(humidity) + "%"
-                battery = data[3] + '%'
-                line = tempStr + '\t' + humidityStr + '\t' + battery + '\t' + sensorLabel + '\t' + time_.strftime(date_format)
+                humidityStr = "{:.0f}".format(humidity)
+                battery = data[3]
+                line = tempStr + 'F\t' + humidityStr + '%\t' + battery + '%\t' + sensorLabel + '\t' + time_.strftime(date_format)
                 print(line)
+                sensors[sensorId]['date'] = time_
+                sensors[sensorId]['temp'] = tempStr
+                sensors[sensorId]['battery'] = battery
+                sensors[sensorId]['humidity'] = humidityStr
 
     time.sleep(60)
