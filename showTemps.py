@@ -24,10 +24,13 @@ def read_last_line(file_path):
         return lines[-1] if lines else None
     return None
 
+def convert_celsius_to_fahrenheit(celsius):
+    fahrenheit = (celsius * 1.8) + 32
+    return fahrenheit
+
 folder_path = "/var/log/goveebttemplogger"
 if len(sys.argv) > 1:
     folder_path = sys.argv[1]
-
 
 sensorsData = read_file("/var/www/html/goveebttemplogger/gvh-titlemap.txt")
 print("Sensor Data", sensorsData)
@@ -38,8 +41,10 @@ if sensorsData:
         if sensorLine:
             data = sensorLine.strip().split('\t')
             print("Data", data)
-            sensor = data[0].replace(":", "")
-            sensors[sensor] = data[1]
+            sensorAddr = data[0].replace(":", "")
+            sensors[sensorAddr] = {
+                'label': data[1]
+            }
 
 print("Sensors", sensors)
 
@@ -49,11 +54,20 @@ for file in files:
     filename = os.path.basename(file)
     parts = filename.split('-')
     sensorId = parts[1]
+    sensorLabel = sensorId
+    if sensorId in sensors:
+        if 'label' in sensors[sensorId]:
+            sensorLabel = sensors[sensorId]['label']
+    else:
+        sensors[sensorId] = {}
+
     if len(sensorId) == 12:
         measurement = read_last_line(file)
         if measurement:
             data = measurement.strip().split('\t')
-            temp = data[1] + 'C'
+            temp = float(data[1])
+            temp = convert_celsius_to_fahrenheit(temp)
+            tempStr = "{:.1f}".format(temp) + "F"
             humidity = data[2] + '%'
             battery = data[3] + '%'
-            print(sensorId, [temp, humidity, battery])
+            print(sensorLabel, [tempStr, humidity, battery])
