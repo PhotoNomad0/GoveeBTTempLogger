@@ -68,7 +68,8 @@ for file in files:
             temp = float(data[1])
             temp = convert_celsius_to_fahrenheit(temp)
             tempStr = "{:.1f}".format(temp) + "F"
-            humidity = data[2] + '%'
+            humidity = float(data[2])
+            humidityStr = "{:.0f}".format(humidity) + "%"
             battery = data[3] + '%'
-            line = tempStr + '\t' + humidity + '\t' + battery + '\t' + sensorLabel
+            line = tempStr + '\t' + humidityStr + '\t' + battery + '\t' + sensorLabel
             print(line)
