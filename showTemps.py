@@ -4,6 +4,9 @@ import os
 import sys
 import glob
 import time
+from datetime import datetime
+
+date_format = "%Y-%m-%d %H:%M:%S"
 
 def list_txt_files(folder_path):
     return glob.glob(f"{folder_path}/*.txt")
@@ -69,13 +72,14 @@ while True:
             measurement = read_last_line(file)
             if measurement:
                 data = measurement.strip().split('\t')
+                timeStr = datetime.strptime(data[0], date_format)
                 temp = float(data[1])
                 temp = convert_celsius_to_fahrenheit(temp)
                 tempStr = "{:.1f}".format(temp) + "F"
                 humidity = float(data[2])
                 humidityStr = "{:.0f}".format(humidity) + "%"
                 battery = data[3] + '%'
-                line = tempStr + '\t' + humidityStr + '\t' + battery + '\t' + sensorLabel
+                line = tempStr + '\t' + humidityStr + '\t' + battery + '\t' + sensorLabel + '\t' + timeStr
                 print(line)
 
     time.sleep(60)
