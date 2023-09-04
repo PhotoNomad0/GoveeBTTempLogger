@@ -100,12 +100,16 @@ while True:
 
     for s in sensors.values():
         if 'label' in s:
+            tempState = greenText
+            humidityState = greenText
+            batteryState = greenText
+
             localTime = s['date']
-            tempStr = s['temp']
-            battery = s['battery']
-            humidityStr = s['humidity']
+            tempStr = tempState + s['temp'] + 'F'
+            battery = batteryState + s['battery'] + '%'
+            humidityStr = humidityState + s['humidity'] + '%'
             sensorLabel = s['label']
-            line = greenText + tempStr + 'F\t' + redText + humidityStr + '%\t' + blueText + battery + '%\t' + blackText + sensorLabel + '\t' + localTime
+            line = greenText + tempStr + '\t' + humidityStr + '\t' + battery + '\t' + blackText + sensorLabel + '\t' + localTime
             print(line)
 
     time.sleep(60)
