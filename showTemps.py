@@ -57,7 +57,6 @@ print("Data Files in path", folder_path, ":")
 files = list_txt_files(folder_path)
 
 while True:
-    print("\n===================================================\n")
     for file in files:
         filename = os.path.basename(file)
         parts = filename.split('-')
@@ -81,11 +80,21 @@ while True:
                 humidityStr = "{:.0f}".format(humidity)
                 battery = data[3]
                 localTime = time_.astimezone().strftime(date_format)
-                line = tempStr + 'F\t' + humidityStr + '%\t' + battery + '%\t' + sensorLabel + '\t' + localTime
-                print(line)
-                sensors[sensorId]['date'] = time_
+
+                sensors[sensorId]['date'] = localTime
                 sensors[sensorId]['temp'] = tempStr
                 sensors[sensorId]['battery'] = battery
                 sensors[sensorId]['humidity'] = humidityStr
+
+    print("\n===================================================\n")
+
+    for s in sensors.values():
+        localTime = s['date']
+        tempStr = s['temp']
+        battery = s['battery']
+        humidityStr = s['humidity']
+        sensorLabel = s['label']
+        line = tempStr + 'F\t' + humidityStr + '%\t' + battery + '%\t' + sensorLabel + '\t' + localTime
+        print(line)
 
     time.sleep(60)
