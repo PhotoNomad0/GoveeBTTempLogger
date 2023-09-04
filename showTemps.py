@@ -7,6 +7,15 @@ import time
 from datetime import datetime, timezone
 
 date_format = "%Y-%m-%d %H:%M:%S"
+greenText = '\033[32m'
+yellowText = '\033[33m'
+defaultText = '\033[0m'
+blackText = '\033[30m'
+redText = '\033[31m'
+blueText = '\033[34m'
+magentaText = '\033[35m'
+cyanText = '\033[36m'
+whiteText = '\033[37m'
 
 def list_txt_files(folder_path):
     return glob.glob(f"{folder_path}/*.txt")
@@ -95,7 +104,7 @@ while True:
             battery = s['battery']
             humidityStr = s['humidity']
             sensorLabel = s['label']
-            line = tempStr + 'F\t' + humidityStr + '%\t' + battery + '%\t' + sensorLabel + '\t' + localTime
+            line = greenText + tempStr + 'F\t' + redText + humidityStr + '%\t' + blueText + battery + '%\t' + defaultText + sensorLabel + '\t' + localTime
             print(line)
 
     time.sleep(60)
