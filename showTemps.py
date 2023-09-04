@@ -16,6 +16,7 @@ blueText = '\033[34m'
 magentaText = '\033[35m'
 cyanText = '\033[36m'
 whiteText = '\033[37m'
+whiteBackground = '\033[47m'
 
 def list_txt_files(folder_path):
     return glob.glob(f"{folder_path}/*.txt")
@@ -95,7 +96,7 @@ while True:
                 sensors[sensorId]['battery'] = battery
                 sensors[sensorId]['humidity'] = humidityStr
 
-    print("\n===================================================\n")
+    print(whiteBackground + "\n===================================================\n")
 
     for s in sensors.values():
         if 'label' in s:
