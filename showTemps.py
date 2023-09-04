@@ -46,8 +46,9 @@ if sensorsData:
             data = sensorLine.strip().split('\t')
             print("Data", data)
             sensorAddr = data[0].replace(":", "")
+            labelParts = data[1].split('(')
             sensors[sensorAddr] = {
-                'label': data[1]
+                'label': labelParts[0].strip()
             }
 
 print("Sensors", sensors)
