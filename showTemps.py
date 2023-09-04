@@ -102,7 +102,7 @@ while True:
         if 'label' in s:
             tempState = greenText
             humidityState = greenText
-            batteryState = greenText
+            batteryState = blueText
 
             localTime = s['date']
             tempStr = tempState + s['temp'] + 'F'
