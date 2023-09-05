@@ -33,11 +33,16 @@ def read_file(file_path):
     return None
 
 def read_last_line(file_path, chunk_size=128):
-    with open(filename, 'r') as file:
-        file.seek(-128, 2)  # Move the pointer 128 characters from the end of the file
-        lines = file.readlines()
-        if lines:
-            return lines[-1] if lines else None
+    try:
+        with open(filename, 'r') as file:
+            file.seek(-128, 2)  # Move the pointer 128 characters from the end of the file
+            lines = file.readlines()
+            if lines:
+                return lines[-1] if lines else None
+    except FileNotFoundError:
+        print(f"File {file_path} not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
     return None
 
 def convert_celsius_to_fahrenheit(celsius):
