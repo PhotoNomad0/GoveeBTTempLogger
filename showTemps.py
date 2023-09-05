@@ -36,8 +36,9 @@ def read_last_line(file_path, chunk_size=128):
     try:
         with open(filename, 'r') as file:
             file.seek(-128, 2)  # Move the pointer 128 characters from the end of the file
-            lines = file.readlines()
-            if lines:
+            data = file.read()
+            if data:
+                lines = data.split('\n')
                 return lines[-1] if lines else None
     except FileNotFoundError:
         print(f"File {file_path} not found.")
