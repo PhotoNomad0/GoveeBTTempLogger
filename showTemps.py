@@ -115,7 +115,7 @@ while True:
                 sensors[sensorId]['humidity'] = humidityStr
 
     print(blackText + "\n===================================================\n" +
-          "Temp\tHumid\tBat\tLocation\tTime"
+          "Temp\tHumidty\tBattery\tLocation\tTime"
           )
 
     for s in sensors.values():
