@@ -38,7 +38,7 @@ def read_last_line(file_path):
         return lines[-1] if lines else None
     return None
 
-# could not read file with seek
+# could not read file with seek - got error FileNotFoundError.  Saw comment that some unix systems not seekable?
 # def read_last_line(file_path, chunk_size=128):
 #     try:
 #         with open(filename, 'r') as file:
@@ -114,7 +114,9 @@ while True:
                 sensors[sensorId]['battery'] = battery
                 sensors[sensorId]['humidity'] = humidityStr
 
-    print(blackText + "\n===================================================\n")
+    print(blackText + "\n===================================================\n" +
+          "Temp\tHumid\tBat\tLocation\tTime"
+          )
 
     for s in sensors.values():
         if 'label' in s:
