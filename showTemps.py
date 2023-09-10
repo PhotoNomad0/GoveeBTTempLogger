@@ -51,7 +51,7 @@ limits = {
             "hi": 85
         },
         "humidity": {
-            "hi": 55
+            "hi": 60
         }
     }
 }
