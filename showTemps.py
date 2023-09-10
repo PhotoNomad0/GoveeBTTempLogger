@@ -114,7 +114,7 @@ def list_txt_files(folder_path):
 def read_file(file_path):
     try:
         with open(file_path, 'r') as file:
-            lines = file.readlines()
+            lines = file.read()
             return lines
     except FileNotFoundError:
         print(f"File {file_path} not found.")
@@ -123,17 +123,19 @@ def read_file(file_path):
     return None
 
 def read_last_line(file_path):
-    lines = read_file(file_path)
-    line = None
-    if lines:
-        pos = len(lines) - 1
-        while pos >= 0:
-            line = lines[pos].strip()
+    data = read_file(file_path)
+    endPos = len(data)
+    while endPos > 0:
+        pos = data.rfind('\n', 0, endPos)
+        if pos >= 0:
+            line = data[pos:endPos].strip()
             line = line.replace('\x00', '')
             if line and len(line) > 0:
-                # print ("pos=", pos, "len=", len, ", line", line)
+                print ("Found at pos=", pos, "len=", len(line), ", line", line)
                 return line
-            pos = pos - 1
+            else:
+                print ("Line not found at pos=", pos, "to endPos=", endPos, "len=", len(line))
+        endPos = pos - 1
     return None
 
 # could not read file with seek - got error FileNotFoundError.  Saw comment that some unix systems not seekable?
@@ -165,7 +167,7 @@ if len(sys.argv) > 1:
 if simulate:
     sensorsData = simulate[0]
 else:
-    sensorsData = read_file("/var/www/html/goveebttemplogger/gvh-titlemap.txt")
+    sensorsData = read_file("/var/www/html/goveebttemplogger/gvh-titlemap.txt").split('\n')
 print("Sensor Data", sensorsData)
 sensors = {}
 
