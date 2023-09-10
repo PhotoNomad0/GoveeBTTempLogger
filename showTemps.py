@@ -131,7 +131,7 @@ def read_last_line(file_path):
             line = lines[pos].strip()
             line = line.replace('\x00', '')
             if line and len(line) > 0:
-                print ("pos=", pos, "len=", len, ", line", line)
+                # print ("pos=", pos, "len=", len, ", line", line)
                 return line
             pos = pos - 1
     return None
