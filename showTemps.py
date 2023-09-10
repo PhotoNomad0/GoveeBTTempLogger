@@ -18,6 +18,7 @@ cyanText = '\033[36m'
 whiteText = '\033[37m'
 whiteBackground = '\033[47m'
 
+gardenLow = 41
 limits = {
     "all": {
         "battery": {
@@ -36,7 +37,12 @@ limits = {
     },
     "garden": {
         "temp" : {
-            "low": 40
+            "low": gardenLow
+        }
+    },
+    "porch": {
+        "temp" : {
+            "low": gardenLow + 5
         }
     },
     "living": {
@@ -58,11 +64,12 @@ limits = {
 
 simulateData = [
     ["A4:C1:38:E7:2A:5F\tGarden (A4:C1:38:E7:2A:5F)"],
-    {"A4C138E72A5F": "2023-09-10 09:09:50	19.3	56.4	25"}
+    {"A4C138E72A5F": "2023-09-10 09:09:50	-5	56.4	25"}
 ]
 simulate = None # set to simulateData for testing
 
 def checkLimits_(value, type, sensor):
+    sensor = sensor.lower()
     hiLimit = False
     lowLimit = False
     if isinstance(value, str):
