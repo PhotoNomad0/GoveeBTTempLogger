@@ -203,6 +203,7 @@ while True:
                 measurement = read_last_line(file)
             if measurement:
                 data = measurement.strip().split('\t')
+                print(file,"=", measurement)
                 time_ = datetime.strptime(data[0], date_format).replace(tzinfo=timezone.utc)
                 temp = float(data[1])
                 temp = convert_celsius_to_fahrenheit(temp)
