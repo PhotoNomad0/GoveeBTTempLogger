@@ -18,6 +18,71 @@ cyanText = '\033[36m'
 whiteText = '\033[37m'
 whiteBackground = '\033[47m'
 
+limits = {
+    "all": {
+        "battery": {
+            "low": 25
+        }
+    },
+    "crawl": {
+        "humidity": {
+            "hi": 55
+        }
+    },
+    "garage": {
+        "temp" : {
+            "low": 40
+        }
+    },
+    "garden": {
+        "temp" : {
+            "low": 40
+        }
+    },
+    "living": {
+        "temp": {
+            "low": 55,
+            "hi": 85
+        },
+        "humidity": {
+            "hi": 55
+        }
+    }
+}
+
+def checkLimits_(value, type, sensor):
+    hiLimit = False
+    lowLimit = False
+    if isinstance(value, str):
+        value = float(value)
+    if sensor in limits:
+        sensorLimits = limits[sensor]
+        if type in sensorLimits:
+            typeLimits = sensorLimits[type]
+            if "hi" in typeLimits:
+                hiLimit = value >= typeLimits["hi"]
+            if "low" in typeLimits:
+                lowLimit = value <= typeLimits["low"]
+
+    return hiLimit or lowLimit
+
+def checkLimits(value, type, sensor):
+    atLimit = checkLimits_(value, type, sensor)
+    allAtLimit = checkLimits_(value, type, 'all')
+    return atLimit or allAtLimit
+
+def setColor(value, type, sensor, defaultColor=greenText):
+    atLimit = checkLimits(value, type, sensor)
+    if atLimit:
+        return redText
+    return defaultText
+
+
+# expr = "setColor('24.9', 'battery', 'garage', blueText)"
+# expr = "setColor(24.9, 'temp', 'garden')"
+#
+# print(expr, "at limit =", eval(expr))
+
 def list_txt_files(folder_path):
     return glob.glob(f"{folder_path}/*.txt")
 
@@ -120,15 +185,18 @@ while True:
 
     for s in sensors.values():
         if 'label' in s:
-            tempState = greenText
-            humidityState = greenText
-            batteryState = blueText
+            sensorLabel = s['label']
+            temp_ = s['temp']
+            tempState = setColor(temp_, 'temp', sensorLabel)
+            humidity_ = s['humidity']
+            humidityState = setColor(humidity_, 'humidity', sensorLabel)
+            battery_ = s['battery']
+            batteryState = setColor(battery_, 'humidity', sensorLabel, blueText)
 
             localTime = s['date']
-            tempStr = tempState + s['temp'] + 'F'
-            battery = batteryState + s['battery'] + '%'
-            humidityStr = humidityState + s['humidity'] + '%'
-            sensorLabel = s['label']
+            tempStr = tempState + temp_ + 'F'
+            battery = batteryState + battery_ + '%'
+            humidityStr = humidityState + humidity_ + '%'
             line = greenText + tempStr + '\t' + humidityStr + '\t' + battery + '\t' + blackText + sensorLabel + '\t' + localTime
             print(line)
 
