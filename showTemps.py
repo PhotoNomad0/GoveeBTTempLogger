@@ -50,6 +50,18 @@ limits = {
     }
 }
 
+# A4:C1:38:E7:2A:5F	Garden (A4:C1:38:E7:2A:5F)
+# A4:C1:38:3F:B0:01	Porch (A4:C1:38:3F:B0:01)
+# A4:C1:38:D0:1B:A5	Garage (A4:C1:38:D0:1B:A5)
+# A4:C1:38:7C:05:A8	Crawl (A4:C1:38:7C:05:A8)
+# A4:C1:38:3B:B1:60	Living (A4:C1:38:3B:B1:60)
+
+simulateData = [
+    ["A4:C1:38:E7:2A:5F\tGarden (A4:C1:38:E7:2A:5F)"],
+    {"A4C138E72A5F": "2023-09-10 09:09:50	19.3	56.4	25"}
+]
+simulate = None # set to simulateData for testing
+
 def checkLimits_(value, type, sensor):
     hiLimit = False
     lowLimit = False
@@ -75,7 +87,7 @@ def setColor(value, type, sensor, defaultColor=greenText):
     atLimit = checkLimits(value, type, sensor)
     if atLimit:
         return redText
-    return defaultText
+    return defaultColor
 
 
 # expr = "setColor('24.9', 'battery', 'garage', blueText)"
@@ -129,7 +141,10 @@ folder_path = "/var/log/goveebttemplogger"
 if len(sys.argv) > 1:
     folder_path = sys.argv[1]
 
-sensorsData = read_file("/var/www/html/goveebttemplogger/gvh-titlemap.txt")
+if simulate:
+    sensorsData = simulate[0]
+else:
+    sensorsData = read_file("/var/www/html/goveebttemplogger/gvh-titlemap.txt")
 print("Sensor Data", sensorsData)
 sensors = {}
 
@@ -147,14 +162,23 @@ if sensorsData:
 print("Sensors", sensors)
 
 print("Data Files in path", folder_path, ":")
-files = list_txt_files(folder_path)
+if simulate:
+    files = list(simulate[1].keys())
+else:
+    files = list_txt_files(folder_path)
 
 while True:
     for file in files:
-        filename = os.path.basename(file)
-        parts = filename.split('-')
-        sensorId = parts[1]
-        sensorLabel = sensorId
+        measurement = None
+        if simulate:
+            sensorId = file
+            measurement = simulate[1][file]
+        else:
+            filename = os.path.basename(file)
+            parts = filename.split('-')
+            sensorId = parts[1]
+            sensorLabel = sensorId
+
         if sensorId in sensors:
             if 'label' in sensors[sensorId]:
                 sensorLabel = sensors[sensorId]['label']
@@ -162,7 +186,8 @@ while True:
             sensors[sensorId] = {}
 
         if len(sensorId) == 12:
-            measurement = read_last_line(file)
+            if not simulate:
+                measurement = read_last_line(file)
             if measurement:
                 data = measurement.strip().split('\t')
                 time_ = datetime.strptime(data[0], date_format).replace(tzinfo=timezone.utc)
