@@ -129,12 +129,12 @@ def read_last_line(file_path):
         pos = data.rfind('\n', 0, endPos)
         if pos >= 0:
             line = data[(pos+1):(endPos+1)].strip()
-            line = line.replace('\x00', '')
+            line = line.replace('\x00', '') # for some reason starting to see null character at end of file, so we remove it
             if line and len(line) > 0:
-                print ("Found at pos=", pos, "len=", len(line), ", line", line)
+                # print ("Found at pos=", pos, "len=", len(line), ", line", line)
                 return line
-            else:
-                print ("Line not found at pos=", pos, "to endPos=", endPos, "len=", len(line))
+            # else:
+                # print ("Line not found at pos=", pos, "to endPos=", endPos, "len=", len(line))
         endPos = pos - 1
     return None
 
