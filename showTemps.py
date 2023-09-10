@@ -63,8 +63,14 @@ limits = {
 # A4:C1:38:3B:B1:60	Living (A4:C1:38:3B:B1:60)
 
 simulateData = [
-    ["A4:C1:38:E7:2A:5F\tGarden (A4:C1:38:E7:2A:5F)"],
-    {"A4C138E72A5F": "2023-09-10 09:09:50	-5	56.4	25"}
+    [
+        "A4:C1:38:E7:2A:5F\tGarden (A4:C1:38:E7:2A:5F)",
+        "A4:C1:38:7C:05:A8\tCrawl (A4:C1:38:7C:05:A8)",
+    ],
+    {
+        "A4C138E72A5F": "2023-09-10 09:09:50	-5	56.4	100",
+        "A4C1387C05A8": "2023-09-10 09:09:51	19	80	15"
+    }
 ]
 simulate = None # set to simulateData for testing
 
@@ -223,7 +229,7 @@ while True:
             humidity_ = s['humidity']
             humidityState = setColor(humidity_, 'humidity', sensorLabel)
             battery_ = s['battery']
-            batteryState = setColor(battery_, 'humidity', sensorLabel, blueText)
+            batteryState = setColor(battery_, 'battery', sensorLabel, blueText)
 
             localTime = s['date']
             tempStr = tempState + temp_ + 'F'
