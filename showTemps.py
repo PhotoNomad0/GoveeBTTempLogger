@@ -124,8 +124,15 @@ def read_file(file_path):
 
 def read_last_line(file_path):
     lines = read_file(file_path)
+    line = None
     if lines:
-        return lines[-1] if lines else None
+        pos = len(lines) - 1
+        while pos >= 0:
+            line = lines[pos]
+            if line and len(line) > 0:
+                print ("pos=", pos, "len=", len, ", line", line)
+                return line
+            pos = pos - 1
     return None
 
 # could not read file with seek - got error FileNotFoundError.  Saw comment that some unix systems not seekable?
@@ -203,7 +210,7 @@ while True:
                 measurement = read_last_line(file)
             if measurement:
                 data = measurement.strip().split('\t')
-                print(file,"=", measurement)
+                print(file,"='", measurement, "'")
                 time_ = datetime.strptime(data[0], date_format).replace(tzinfo=timezone.utc)
                 temp = float(data[1])
                 temp = convert_celsius_to_fahrenheit(temp)
