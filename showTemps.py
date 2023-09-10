@@ -128,7 +128,7 @@ def read_last_line(file_path):
     while endPos > 0:
         pos = data.rfind('\n', 0, endPos)
         if pos >= 0:
-            line = data[pos:endPos].strip()
+            line = data[(pos+1):(endPos+1)].strip()
             line = line.replace('\x00', '')
             if line and len(line) > 0:
                 print ("Found at pos=", pos, "len=", len(line), ", line", line)
