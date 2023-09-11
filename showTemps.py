@@ -239,7 +239,7 @@ while True:
           )
 
     for s in sensors.values():
-        if 'label' in s:
+        if ('label' in s) and ('temp' in s):
             sensorLabel = s['label']
             temp_ = s['temp']
             tempState = setColor(temp_, 'temp', sensorLabel)
