@@ -56,12 +56,7 @@ limits = {
     }
 }
 
-# A4:C1:38:E7:2A:5F	Garden (A4:C1:38:E7:2A:5F)
-# A4:C1:38:3F:B0:01	Porch (A4:C1:38:3F:B0:01)
-# A4:C1:38:D0:1B:A5	Garage (A4:C1:38:D0:1B:A5)
-# A4:C1:38:7C:05:A8	Crawl (A4:C1:38:7C:05:A8)
-# A4:C1:38:3B:B1:60	Living (A4:C1:38:3B:B1:60)
-
+# this is for testing on machine without HW
 simulateData = [
     [
         "A4:C1:38:E7:2A:5F\tGarden (A4:C1:38:E7:2A:5F)",
@@ -103,11 +98,6 @@ def setColor(value, type, sensor, defaultColor=greenText):
     return defaultColor
 
 
-# expr = "setColor('24.9', 'battery', 'garage', blueText)"
-# expr = "setColor(24.9, 'temp', 'garden')"
-#
-# print(expr, "at limit =", eval(expr))
-
 def list_txt_files(folder_path):
     return glob.glob(f"{folder_path}/*.txt")
 
@@ -128,15 +118,31 @@ def read_last_line(file_path):
     while endPos > 0:
         pos = data.rfind('\n', 0, endPos)
         if pos >= 0:
-            line = data[(pos+1):(endPos+1)].strip()
-            line = line.replace('\x00', '') # for some reason starting to see null character at end of file, so we remove it
+            line = extractLine(data, pos, endPos)
             if line and len(line) > 0:
-                # print ("Found at pos=", pos, "len=", len(line), ", line", line)
+                print ("Found at pos=", pos, "len=", len(line), ", line", line)
                 return line
-            # else:
-                # print ("Line not found at pos=", pos, "to endPos=", endPos, "len=", len(line))
+            else:
+                print ("Line not found at pos=", pos, "to endPos=", endPos, "len=", len(line))
         endPos = pos - 1
+
+        if endPos < 0:
+            pos = 0
+            line = extractLine(data, pos, endPos)
+            if line and len(line) > 0:
+                print ("Found at pos=", pos, "len=", len(line), ", line", line)
+                return line
+            else:
+                print ("Line not found at pos=", pos, "to endPos=", endPos, "len=", len(line))
+
     return None
+
+
+def extractLine(data, pos, endPos):
+    line = data[(pos + 1):(endPos + 1)].strip()
+    line = line.replace('\x00', '')  # for some reason starting to see null character at end of file, so we remove it
+    return line
+
 
 # could not read file with seek - got error FileNotFoundError.  Saw comment that some unix systems not seekable?
 # def read_last_line(file_path, chunk_size=128):
