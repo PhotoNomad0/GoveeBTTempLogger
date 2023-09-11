@@ -112,8 +112,12 @@ def read_file(file_path):
         print(f"An error occurred: {e}")
     return None
 
-def read_last_line(file_path):
-    data = read_file(file_path)
+def extractLine(data, pos, endPos):
+    line = data[pos:(endPos + 1)].strip()
+    line = line.replace('\x00', '')  # for some reason starting to see null character at end of file, so we remove it
+    return line
+
+def extract_last_line(data):
     endPos = len(data)
     while endPos > 0:
         pos = data.rfind('\n', 0, endPos)
@@ -124,43 +128,28 @@ def read_last_line(file_path):
                 return line
             else:
                 print ("Line not found at pos=", pos, "to endPos=", endPos, "len=", len(line))
-        endPos = pos - 1
 
-        if endPos < 0:
-            pos = 0
-            line = extractLine(data, pos, endPos)
+        if pos < 0:
+            npos = 0
+            line = extractLine(data, npos, endPos)
             if line and len(line) > 0:
-                print ("Found at pos=", pos, "len=", len(line), ", line", line)
+                print ("Found at pos=", npos, "len=", len(line), ", line", line)
                 return line
             else:
-                print ("Line not found at pos=", pos, "to endPos=", endPos, "len=", len(line))
+                print ("Line not found at pos=", npos, "to endPos=", endPos, "len=", len(line))
+
+        endPos = pos - 1
 
     return None
 
+# line = "2023-09-10 09:09:50	-5	56.4	100\n2023-09-10 09:09:51	-5	56.4	99\n"
+# lline = extract_last_line(line)
+# print(lline)
 
-def extractLine(data, pos, endPos):
-    line = data[pos:(endPos + 1)].strip()
-    line = line.replace('\x00', '')  # for some reason starting to see null character at end of file, so we remove it
+def read_last_line(file_path):
+    data = read_file(file_path)
+    line = extract_last_line(data)
     return line
-
-
-# could not read file with seek - got error FileNotFoundError.  Saw comment that some unix systems not seekable?
-# def read_last_line(file_path, chunk_size=128):
-#     try:
-#         with open(filename, 'r') as file:
-#             print("opened", file_path)
-#             file.seek(-128, 2)  # Move the pointer 128 characters from the end of the file
-#             print("seeked", file_path)
-#             data = file.read()
-#             print("read", file_path)
-#             if data:
-#                 lines = data.split('\n')
-#                 return lines[-1] if lines else None
-#     except FileNotFoundError:
-#         print(f"File {file_path} not found.")
-#     except Exception as e:
-#         print(f"An error occurred: {e}")
-#     return None
 
 def convert_celsius_to_fahrenheit(celsius):
     fahrenheit = (celsius * 1.8) + 32

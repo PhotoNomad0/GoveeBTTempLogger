@@ -1,0 +1,9 @@
+### Editing /etc/systemd/system/goveebttemplogger.service.d/override.conf
+### Anything between here and the comment below will become the new contents of the file
+
+[Service]
+Environment="VERBOSITY=2"
+Environment="LOGDIR=/var/log/goveebttemplogger"
+Environment="TIME=100"
+Environment="SVGARGS=--svg /var/www/html/goveebttemplogger/ --battery 8 --minmax 8 --titlemap /var/www/html/goveebttemplogger/gvh-titlemap.txt"
+
