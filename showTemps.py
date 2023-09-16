@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 date_format = "%Y-%m-%d %H:%M:%S"
 greenText = '\033[32m'
 yellowText = '\033[33m'
-defaultText = '\033[0m'
+defaultColorText = '\033[0m'
 blackText = '\033[30m'
 redText = '\033[31m'
 blueText = '\033[34m'
@@ -91,10 +91,15 @@ def checkLimits(value, type, sensor):
     allAtLimit = checkLimits_(value, type, 'all')
     return atLimit or allAtLimit
 
+
 def setColor(value, type, sensor, defaultColor=greenText):
     atLimit = checkLimits(value, type, sensor)
+    return setColorIfLimit(atLimit, redText, defaultColor)
+
+
+def setColorIfLimit(atLimit, limitColor, defaultColor):
     if atLimit:
-        return redText
+        return limitColor
     return defaultColor
 
 
@@ -216,7 +221,7 @@ while True:
                 humidity = float(data[2])
                 humidityStr = "{:.0f}".format(humidity)
                 battery = data[3]
-                localTime = time_.astimezone().strftime(date_format)
+                localTime = time_.astimezone()
 
                 sensors[sensorId]['date'] = localTime
                 sensors[sensorId]['temp'] = tempStr
@@ -226,6 +231,8 @@ while True:
     print(blackText + "\n===================================================\n" +
           "Temp\tHumidty\tBattery\tLocation\tTime"
           )
+
+    now = datetime.now().astimezone()
 
     for s in sensors.values():
         if ('label' in s) and ('temp' in s):
@@ -238,10 +245,18 @@ while True:
             batteryState = setColor(battery_, 'battery', sensorLabel, blueText)
 
             localTime = s['date']
+            # Calculate time difference
+            diff = now - localTime
+            # Convert time difference to minutes
+            minutes = diff.total_seconds() / 60
+            oldMeasurement = abs(minutes) >= 10
+            localTimeState = setColorIfLimit(oldMeasurement, redText, defaultColorText)
+
+            localTimeStr = localTimeState + localTime.strftime(date_format)
             tempStr = tempState + temp_ + 'F'
             battery = batteryState + battery_ + '%'
             humidityStr = humidityState + humidity_ + '%'
-            line = greenText + tempStr + '\t' + humidityStr + '\t' + battery + '\t' + blackText + sensorLabel + '\t' + localTime
+            line = greenText + tempStr + '\t' + humidityStr + '\t' + battery + '\t' + blackText + sensorLabel + '\t' + localTimeStr + blackText
             print(line)
 
     time.sleep(60)
