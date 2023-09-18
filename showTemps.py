@@ -5,6 +5,8 @@ import sys
 import glob
 import time
 from datetime import datetime, timezone
+import logging
+import subprocess
 
 date_format = "%Y-%m-%d %H:%M:%S"
 greenText = '\033[32m'
@@ -17,6 +19,8 @@ magentaText = '\033[35m'
 cyanText = '\033[36m'
 whiteText = '\033[37m'
 whiteBackground = '\033[47m'
+
+logging.basicConfig(filename='app.log', format='%(name)s - %(levelname)s - %(message)s')
 
 gardenLow = 41
 limits = {
@@ -161,13 +165,25 @@ def convert_celsius_to_fahrenheit(celsius):
     return fahrenheit
 
 folder_path = "/var/log/goveebttemplogger"
-if len(sys.argv) > 1:
-    folder_path = sys.argv[1]
+
+idx = 0
+system = False
+sleepTime = 60
+if len(sys.argv) > 1 and sys.argv[1] == '--system':
+    idx = 1
+    system = True
+    print("System mode is on")
+    sleepTime = 60 * 15
+
+if len(sys.argv) > idx + 1:
+    folder_path = sys.argv[idx]
+    print("Folder path on command line is:", folder_path)
 
 if simulate:
     sensorsData = simulate[0]
 else:
     sensorsData = read_file("/var/www/html/goveebttemplogger/gvh-titlemap.txt").split('\n')
+print("Print Interval seconds:", sleepTime)
 print("Sensor Data", sensorsData)
 sensors = {}
 
@@ -189,6 +205,34 @@ if simulate:
     files = list(simulate[1].keys())
 else:
     files = list_txt_files(folder_path)
+
+
+def getTime():
+    return datetime.now().astimezone()
+
+
+def restartMeasurementService():
+    msg = '### Measurements are HUNG!'
+    print(msg)
+    logging.error(msg)
+    command = "systemctl restart templogger"
+
+    try:
+        result = subprocess.run(command.split(), capture_output=True)
+        if result.returncode == 0:
+            msg = "Service restarted"
+            print(msg)
+            logging.info(msg)
+            return
+
+        else:
+            msg = f"Command failed with error: {result.stderr}"
+            print(msg)
+            logging.error(msg)
+
+    except Exception as e:
+        print(f"An error occurred restarting service: {e}")
+
 
 while True:
     for file in files:
@@ -221,9 +265,9 @@ while True:
                 humidity = float(data[2])
                 humidityStr = "{:.0f}".format(humidity)
                 battery = data[3]
-                localTime = time_.astimezone()
+                sampleTime = time_.astimezone()
 
-                sensors[sensorId]['date'] = localTime
+                sensors[sensorId]['date'] = sampleTime
                 sensors[sensorId]['temp'] = tempStr
                 sensors[sensorId]['battery'] = battery
                 sensors[sensorId]['humidity'] = humidityStr
@@ -232,7 +276,8 @@ while True:
           "Temp\tHumidty\tBattery\tLocation\tTime"
           )
 
-    now = datetime.now().astimezone()
+    now = getTime()
+    timeout = False
 
     for s in sensors.values():
         if ('label' in s) and ('temp' in s):
@@ -244,19 +289,26 @@ while True:
             battery_ = s['battery']
             batteryState = setColor(battery_, 'battery', sensorLabel, blueText)
 
-            localTime = s['date']
+            sampleTime = s['date']
             # Calculate time difference
-            diff = now - localTime
+            diff = now - sampleTime
             # Convert time difference to minutes
             minutes = diff.total_seconds() / 60
             oldMeasurement = abs(minutes) >= 10
-            localTimeState = setColorIfLimit(oldMeasurement, redText, defaultColorText)
+            if oldMeasurement:
+                timeout = True
 
-            localTimeStr = localTimeState + localTime.strftime(date_format)
+            sampleTimeState = setColorIfLimit(oldMeasurement, redText, defaultColorText)
+            sampleTimeStr = sampleTimeState + sampleTime.strftime(date_format)
             tempStr = tempState + temp_ + 'F'
             battery = batteryState + battery_ + '%'
             humidityStr = humidityState + humidity_ + '%'
-            line = greenText + tempStr + '\t' + humidityStr + '\t' + battery + '\t' + blackText + sensorLabel + '\t' + localTimeStr + blackText
+            line = greenText + tempStr + '\t' + humidityStr + '\t' + battery + '\t' + blackText + sensorLabel + '\t' + sampleTimeStr + blackText
             print(line)
 
-    time.sleep(60)
+    if timeout:
+        restartMeasurementService()
+
+    time.sleep(sleepTime)
+
+
