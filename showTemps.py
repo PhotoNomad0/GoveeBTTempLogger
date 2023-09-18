@@ -20,7 +20,7 @@ cyanText = '\033[36m'
 whiteText = '\033[37m'
 whiteBackground = '\033[47m'
 
-logging.basicConfig(filename='app.log', format='%(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(filename='GoveeBTTempLogger.log', format='%(asctime)s - %(levelname)s - %(message)s', level=logging.DEBUG)
 
 gardenLow = 41
 limits = {
@@ -72,6 +72,17 @@ simulateData = [
     }
 ]
 simulate = None # set to simulateData for testing
+
+
+def logInfo(msg):
+    print(msg)
+    logging.info(msg)
+
+
+def logError(msg):
+    print(msg)
+    logging.error(msg)
+
 
 def checkLimits_(value, type, sensor):
     sensor = sensor.lower()
@@ -172,20 +183,24 @@ sleepTime = 60
 if len(sys.argv) > 1 and sys.argv[1] == '--system':
     idx = 1
     system = True
-    print("System mode is on")
+    logInfo("System mode is on")
     sleepTime = 60 * 15
 
 if len(sys.argv) > idx + 1:
     folder_path = sys.argv[idx]
-    print("Folder path on command line is:", folder_path)
+    logInfo(f"Starting APP - Folder path on command line is: {folder_path}")
+else:
+    logInfo(f"Starting APP - Default Folder path is: {folder_path}")
 
 if simulate:
     sensorsData = simulate[0]
 else:
     sensorsData = read_file("/var/www/html/goveebttemplogger/gvh-titlemap.txt").split('\n')
-print("Print Interval seconds:", sleepTime)
-print("Sensor Data", sensorsData)
+
+logInfo(f"Print Interval seconds: {sleepTime}")
+logInfo(f"Sensor Data: {sensorsData}")
 sensors = {}
+files = []
 
 if sensorsData:
     for sensorLine in sensorsData:
@@ -198,43 +213,38 @@ if sensorsData:
                 'label': labelParts[0].strip()
             }
 
-print("Sensors", sensors)
-
-print("Data Files in path", folder_path, ":")
-if simulate:
-    files = list(simulate[1].keys())
-else:
-    files = list_txt_files(folder_path)
-
+logInfo(f"Sensors: {sensors}")
 
 def getTime():
     return datetime.now().astimezone()
 
 
 def restartMeasurementService():
-    msg = '### Measurements are HUNG!'
-    print(msg)
-    logging.error(msg)
+    logError('### Measurements are HUNG!')
     command = "systemctl restart templogger"
 
     try:
         result = subprocess.run(command.split(), capture_output=True)
         if result.returncode == 0:
-            msg = "Service restarted"
-            print(msg)
-            logging.info(msg)
+            logInfo("Templogger Service restarted")
             return
 
         else:
-            msg = f"Command failed with error: {result.stderr}"
-            print(msg)
-            logging.error(msg)
+            logError(f"Command failed with error: {result.stderr}")
 
     except Exception as e:
         print(f"An error occurred restarting service: {e}")
 
-
 while True:
+    if simulate:
+        files_ = list(simulate[1].keys())
+    else:
+        files_ = list_txt_files(folder_path)
+
+    if files != files_: # see if changed
+        files = files_
+        logging.info(F"Data Files found in path: {files}")
+
     for file in files:
         measurement = None
         if simulate:
