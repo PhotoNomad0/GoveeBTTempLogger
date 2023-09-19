@@ -222,7 +222,7 @@ def getTime():
 
 def restartMeasurementService():
     logError('### Measurements are HUNG!')
-    command = "systemctl restart templogger"
+    command = "systemctl restart goveebttemplogger"
 
     try:
         result = subprocess.run(command.split(), capture_output=True)
@@ -237,7 +237,7 @@ def restartMeasurementService():
         print(f"An error occurred restarting service: {e}")
 
 while True:
-    print(clearScreen)
+    # print(clearScreen)
     if simulate:
         files_ = list(simulate[1].keys())
     else:
