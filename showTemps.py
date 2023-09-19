@@ -19,6 +19,7 @@ magentaText = '\033[35m'
 cyanText = '\033[36m'
 whiteText = '\033[37m'
 whiteBackground = '\033[47m'
+clearScreen = '\033[2J'
 
 logging.basicConfig(filename='GoveeBTTempLogger.log', format='%(asctime)s - %(levelname)s - %(message)s', level=logging.DEBUG)
 
@@ -236,6 +237,7 @@ def restartMeasurementService():
         print(f"An error occurred restarting service: {e}")
 
 while True:
+    print(clearScreen)
     if simulate:
         files_ = list(simulate[1].keys())
     else:
