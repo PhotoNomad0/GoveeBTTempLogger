@@ -318,7 +318,7 @@ while True:
             line = greenText + tempStr + '\t' + humidityStr + '\t' + battery + '\t' + blackText + sensorLabel + '\t' + sampleTimeStr + blackText
             print(line)
 
-    if timeout:
+    if timeout and system:
         restartMeasurementService()
 
     time.sleep(sleepTime)
