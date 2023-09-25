@@ -75,6 +75,7 @@
 #include <queue>
 #include <set>
 #include <sstream>
+#include <string>
 #include <sys/ioctl.h>
 #include <sys/select.h>
 #include <sys/socket.h>
@@ -87,7 +88,14 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230902-1 Built on: " __DATE__ " at " __TIME__);
+#if __has_include("goveebttemplogger-version.h")
+#include "goveebttemplogger-version.h"
+#endif
+#ifndef GoveeBTTempLogger_VERSION
+#define GoveeBTTempLogger_VERSION "(non-CMake)"
+#endif // !GoveeBTTempLogger_VERSION
+/////////////////////////////////////////////////////////////////////////////
+static const std::string ProgramVersionString("GoveeBTTempLogger Version " GoveeBTTempLogger_VERSION " Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime, const bool LocalTime = false)
 {
@@ -246,6 +254,7 @@ int hci_le_set_ext_scan_enable(int dd, uint8_t enable, uint8_t filter_dup, int t
 int ConsoleVerbosity(1);
 bool UseBluetooth(true);
 std::filesystem::path LogDirectory;	// If this remains empty, log Files are not created.
+std::filesystem::path CacheDirectory;	// If this remains empty, cache Files are not used. Cache Files should greatly speed up startup of the program if logged data runs multiple years over many devices.
 std::filesystem::path SVGDirectory;	// If this remains empty, SVG Files are not created. If it's specified, _day, _week, _month, and _year.svg files are created for each bluetooth address seen.
 int SVGBattery(0); // 0x01 = Draw Battery line on daily, 0x02 = Draw Battery line on weekly, 0x04 = Draw Battery line on monthly, 0x08 = Draw Battery line on yearly
 int SVGMinMax(0); // 0x01 = Draw Temperature and Humiditiy Minimum and Maximum line on daily, 0x02 = on weekly, 0x04 = on monthly, 0x08 = on yearly
@@ -280,6 +289,8 @@ class  Govee_Temp {
 public:
 	time_t Time;
 	std::string WriteTXT(const char seperator = '\t') const;
+	std::string WriteCache(void) const;
+	bool ReadCache(const std::string& data);
 	bool ReadMSG(const uint8_t * const data);
 	Govee_Temp() : Time(0), Temperature{ 0, 0, 0, 0 }, TemperatureMin{ DBL_MAX, DBL_MAX, DBL_MAX, DBL_MAX }, TemperatureMax{ -DBL_MAX, -DBL_MAX, -DBL_MAX, -DBL_MAX }, Humidity(0), HumidityMin(DBL_MAX), HumidityMax(-DBL_MAX), Battery(INT_MAX), Averages(0), Model(ThermometerType::Unknown) { };
 	Govee_Temp(const time_t tim, const double tem, const double hum, const int bat)
@@ -406,6 +417,17 @@ std::string Govee_Temp::WriteTXT(const char seperator) const
 		ssValue << seperator << Temperature[1];
 	}
 	return(ssValue.str());
+}
+std::string Govee_Temp::WriteCache(void) const
+{
+	std::ostringstream ssValue;
+	ssValue << timeToExcelDate(Time);
+	return(ssValue.str());
+}
+bool Govee_Temp::ReadCache(const std::string& data)
+{
+	bool rval = false;
+	return(rval);
 }
 ThermometerType Govee_Temp::SetModel(const std::string& Name)
 {
@@ -1003,6 +1025,99 @@ void GetMRTGOutput(const std::string &TextAddress, const int Minutes)
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::vector<Govee_Temp>> GoveeMRTGLogs; // memory map of BT addresses and vector structure similar to MRTG Log Files
 std::map<bdaddr_t, std::string> GoveeBluetoothTitles; 
+/////////////////////////////////////////////////////////////////////////////
+std::filesystem::path GenerateCacheFileName(const bdaddr_t& a)
+{
+	std::string btAddress(ba2string(a));
+	for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
+		btAddress.erase(pos, 1);
+	std::ostringstream OutputFilename;
+	OutputFilename << "gvh-cache-";
+	OutputFilename << btAddress;
+	OutputFilename << ".txt";
+	std::filesystem::path CacheFileName(CacheDirectory / OutputFilename.str());
+	return(CacheFileName);
+}
+bool GenerateCacheFile(const bdaddr_t& a, const std::vector<Govee_Temp>& GoveeMRTGLog)
+{
+	bool rval(false);
+	if (!GoveeMRTGLog.empty())
+	{
+		bool bCacheOldOrNonexistant(true);
+		std::filesystem::path MRTGCacheFile(GenerateCacheFileName(a));
+		struct stat64 FileStat;
+		FileStat.st_mtim.tv_sec = 0;
+		if (0 == stat64(MRTGCacheFile.c_str(), &FileStat))	// returns 0 if the file-status information is obtained
+			if ((FileStat.st_mtim.tv_sec > GoveeMRTGLog[0].Time - (60 * 60)))	// only write the file if data is at least one hour more recent than cached data
+				bCacheOldOrNonexistant = false;
+		if (bCacheOldOrNonexistant)
+		{
+			std::ofstream CacheFile(MRTGCacheFile, std::ios_base::out | std::ios_base::trunc);
+			if (CacheFile.is_open())
+			{
+				if (ConsoleVerbosity > 0)
+					std::cout << "[" << getTimeISO8601(true) << "] Writing: " << MRTGCacheFile.string() << std::endl;
+				else
+					std::cerr << "Writing: " << MRTGCacheFile.string() << std::endl;
+				for (auto i : GoveeMRTGLog)
+					CacheFile << i.WriteCache() << std::endl;
+				CacheFile.close();
+				struct utimbuf ut;
+				ut.actime = GoveeMRTGLog[0].Time;
+				ut.modtime = GoveeMRTGLog[0].Time;
+				utime(MRTGCacheFile.c_str(), &ut);
+				rval = true;
+			}
+		}
+	}
+	return(rval);
+}
+void ReadCacheDirectory(void)
+{
+	if (!CacheDirectory.empty())
+	{
+		std::deque<std::filesystem::path> files;
+		for (auto const& dir_entry : std::filesystem::directory_iterator{ CacheDirectory })
+			if (dir_entry.is_regular_file())
+				if (dir_entry.path().extension() == ".txt")
+					if (dir_entry.path().stem().string().substr(0, 10) == "gvh-cache-")
+						files.push_back(dir_entry);
+		if (!files.empty())
+		{
+			sort(files.begin(), files.end());
+			while (!files.empty())
+			{
+				auto ssBTAddress = files.begin()->stem().string().substr(10, 12);	// new filename format (2023-04-03)
+				for (auto index = ssBTAddress.length() - 2; index > 0; index -= 2)
+					ssBTAddress.insert(index, ":");
+				bdaddr_t TheBlueToothAddress;
+				str2ba(ssBTAddress.c_str(), &TheBlueToothAddress);
+				std::vector<Govee_Temp> foo;
+				auto ret = GoveeMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Govee_Temp>>(TheBlueToothAddress, foo));
+				std::vector<Govee_Temp>& FakeMRTGFile = ret.first->second;
+				std::ifstream TheFile(*files.begin());
+				if (TheFile.is_open())
+				{
+					FakeMRTGFile.clear();
+					if (ConsoleVerbosity > 0)
+						std::cout << "[" << getTimeISO8601(true) << "] Reading: " << files.begin()->string() << std::endl;
+					else
+						std::cerr << "Reading: " << files.begin()->string() << std::endl;
+					std::string TheLine;
+					while (std::getline(TheFile, TheLine))
+					{
+						Govee_Temp value;
+						value.ReadCache(TheLine);
+						FakeMRTGFile.push_back(value);
+					}
+					TheFile.close();
+				}
+				files.pop_front();
+			}
+		}
+	}
+}
+/////////////////////////////////////////////////////////////////////////////
 enum class GraphType { daily, weekly, monthly, yearly};
 // Returns a curated vector of data points specific to the requested graph type read directly from a real MRTG log file on disk.
 void ReadMRTGData(const std::filesystem::path& MRTGLogFileName, std::vector<Govee_Temp>& TheValues, const GraphType graph = GraphType::daily)
@@ -2042,11 +2157,15 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 	// https://par.nsf.gov/servlets/purl/10275622
 	// https://e2e.ti.com/support/wireless-connectivity/bluetooth-group/bluetooth/f/bluetooth-forum/616269/cc2640r2f-q1-how-scan-interval-window-work-during-scanning-duration
 	// https://www.scirp.org/journal/paperinformation.aspx?paperid=106311
+	// https://microchipdeveloper.com/wireless:ble-link-layer-discovery has a nice description of Passive Scanning vs Active Scanning
 	int btRVal = 0;
 	uint8_t bt_ScanFilterPolicy = 0x00; // Scan Filter Policy: Accept all advertisements, except directed advertisements not addressed to this device (0x00)
 	if (enable)
 	{
-		bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList);
+		time_t TimeNow;
+		time(&TimeNow);
+		static time_t LastScanEnableMessage = TimeNow;
+		bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList); // call this routine recursively to disable any existing scanning
 		if (!BT_WhiteList.empty())
 		{
 			const bdaddr_t TestAddress = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
@@ -2055,7 +2174,8 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 				if (ConsoleVerbosity > 0)
 					std::cout << "[" << getTimeISO8601() << "] BlueTooth Address Filter:";
 				else
-					std::cerr << "BlueTooth Address Filter:";
+					if (difftime(TimeNow, LastScanEnableMessage) > (60 * 5)) // Reduce Spamming Syslog
+						std::cerr << "BlueTooth Address Filter:";
 				for (auto it = GoveeMRTGLogs.begin(); it != GoveeMRTGLogs.end(); it++)
 				{
 					const bdaddr_t TheAddress = it->first;
@@ -2063,12 +2183,14 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 					if (ConsoleVerbosity > 0)
 						std::cout << " [" << ba2string(TheAddress) << "]";
 					else
-						std::cerr << " [" << ba2string(TheAddress) << "]";
+						if (difftime(TimeNow, LastScanEnableMessage) > (60 * 5)) // Reduce Spamming Syslog
+							std::cerr << " [" << ba2string(TheAddress) << "]";
 				}
 				if (ConsoleVerbosity > 0)
 					std::cout << std::endl;
 				else
-					std::cerr << std::endl;
+					if (difftime(TimeNow, LastScanEnableMessage) > (60 * 5)) // Reduce Spamming Syslog
+						std::cerr << std::endl;
 			}
 			else
 			{
@@ -2114,9 +2236,15 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 			else
 			{
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601() << "] Scanning Started. ScanInterval(" << double(bt_ScanInterval)*0.625 << " msec) ScanWindow(" << double(bt_ScanWindow)*0.625 << " msec) ScanType(" << uint(bt_ScanType) << ")" << std::endl;
+					std::cout << "[" << getTimeISO8601() << "] Scanning Started. ScanInterval(" << double(bt_ScanInterval) * 0.625 << " msec) ScanWindow(" << double(bt_ScanWindow) * 0.625 << " msec) ScanType(" << uint(bt_ScanType) << ")" << std::endl;
 				else
-					std::cerr << ProgramVersionString << " (listening for Bluetooth Low Energy Advertisements) ScanInterval(" << double(bt_ScanInterval) * 0.625 << " msec) ScanWindow(" << double(bt_ScanWindow) * 0.625 << " msec) ScanType(" << uint(bt_ScanType) << ")" << std::endl;
+				{
+					if (difftime(TimeNow, LastScanEnableMessage) > (60 * 5)) // Reduce Spamming Syslog
+					{
+						LastScanEnableMessage = TimeNow;
+						std::cerr << ProgramVersionString << " (listening for Bluetooth Low Energy Advertisements) ScanInterval(" << double(bt_ScanInterval) * 0.625 << " msec) ScanWindow(" << double(bt_ScanWindow) * 0.625 << " msec) ScanType(" << uint(bt_ScanType) << ")" << std::endl;
+					}
+				}
 			}
 		}
 	}
@@ -2729,6 +2857,7 @@ static void usage(int argc, char **argv)
 	std::cout << "    -o | --only XX:XX:XX:XX:XX:XX only report this address" << std::endl;
 	std::cout << "    -C | --controller XX:XX:XX:XX:XX:XX use the controller with this address" << std::endl;
 	std::cout << "    -a | --average minutes [" << MinutesAverage << "]" << std::endl;
+	std::cout << "    -f | --cache name    cache file directory [" << CacheDirectory << "]" << std::endl;
 	std::cout << "    -s | --svg name      SVG output directory [" << SVGDirectory << "]" << std::endl;
 	std::cout << "    -i | --index name    HTML index file for SVG files" << std::endl;
 	std::cout << "    -T | --titlemap name SVG title fully qualified filename [" << SVGTitleMapFilename << "]" << std::endl;
@@ -2740,7 +2869,7 @@ static void usage(int argc, char **argv)
 	std::cout << "    -n | --no-bluetooth  Monitor Logging Directory and process logs without Bluetooth Scanning" << std::endl;
 	std::cout << std::endl;
 }
-static const char short_options[] = "hl:t:v:m:o:C:a:s:i:T:cb:x:dpn";
+static const char short_options[] = "hl:t:v:m:o:C:a:f:s:i:T:cb:x:dpn";
 static const struct option long_options[] = {
 		{ "help",   no_argument,       NULL, 'h' },
 		{ "log",    required_argument, NULL, 'l' },
@@ -2750,6 +2879,7 @@ static const struct option long_options[] = {
 		{ "only",	required_argument, NULL, 'o' },
 		{ "controller", required_argument, NULL, 'C' },
 		{ "average",required_argument, NULL, 'a' },
+		{ "cache",	required_argument, NULL, 'f' },
 		{ "svg",	required_argument, NULL, 's' },
 		{ "index",	required_argument, NULL, 'i' },
 		{ "titlemap",required_argument,NULL, 'T' },
@@ -2818,6 +2948,13 @@ int main(int argc, char **argv)
 			catch (const std::invalid_argument& ia) { std::cerr << "Invalid argument: " << ia.what() << std::endl; exit(EXIT_FAILURE); }
 			catch (const std::out_of_range& oor) { std::cerr << "Out of Range error: " << oor.what() << std::endl; exit(EXIT_FAILURE); }
 			break;
+		case 'f':
+			TempPath = std::string(optarg);
+			while (TempPath.filename().empty() && (TempPath != TempPath.root_directory())) // This gets rid of the "/" on the end of the path
+				TempPath = TempPath.parent_path();
+			if (ValidateDirectory(TempPath))
+				CacheDirectory = TempPath;
+			break;
 		case 'd':
 			DaysBetweenDataDownload = 14;
 			break;
@@ -2880,6 +3017,7 @@ int main(int argc, char **argv)
 		if (ConsoleVerbosity > 1)
 		{
 			std::cout << "[                   ]      log: " << LogDirectory << std::endl;
+			std::cout << "[                   ]    cache: " << CacheDirectory << std::endl;
 			std::cout << "[                   ]      svg: " << SVGDirectory << std::endl;
 			std::cout << "[                   ]  battery: " << SVGBattery << std::endl;
 			std::cout << "[                   ]   minmax: " << SVGMinMax << std::endl;
@@ -3275,24 +3413,19 @@ int main(int argc, char **argv)
 															LastDownloadTime = RecentDownload->second;
 														time_t TimeNow;
 														time(&TimeNow);
-														static time_t LastDownloadAttemptTime = TimeNow;
-														if (difftime(TimeNow, LastDownloadAttemptTime) > (60 * 5)) // Only attempt a download if it's been longer than 5 minutes since the last attempt
+														// Don't try to download more often than once a week, because it uses more battery than just the advertisments
+														if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
 														{
-															LastDownloadAttemptTime = TimeNow;
-															// Don't try to download more often than once a week, because it uses more battery than just the advertisments
-															if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
+															bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList);
+															time_t DownloadTime = ConnectAndDownload(BlueToothDevice_Handle, info->bdaddr, LastDownloadTime, BatteryToRecord);
+															if (DownloadTime > 0)
 															{
-																bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList);
-																time_t DownloadTime = ConnectAndDownload(BlueToothDevice_Handle, info->bdaddr, LastDownloadTime, BatteryToRecord);
-																if (DownloadTime > 0)
-																{
-																	if (RecentDownload != GoveeLastDownload.end())
-																		RecentDownload->second = DownloadTime;
-																	else
-																		GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, DownloadTime));
-																}
-																bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
+																if (RecentDownload != GoveeLastDownload.end())
+																	RecentDownload->second = DownloadTime;
+																else
+																	GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, DownloadTime));
 															}
+															bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
 														}
 													}
 												}

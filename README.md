@@ -54,17 +54,18 @@ If the --svg option is not added to the command line, the program should continu
  
 #### Ubuntu/Debian/Raspbian
 
-Note: be sure to clone this repository.
+##### Build Process changed from using make with a makefile to cmake 2023-09-18
+This seems to better build the debian package with the correct installed size, dependencies, and md5sums details. I'm still learning CMake so there may be regular updates for a while.
 
 ```sh
-git clone https://github.com/wcbonner/GoveeBTTempLogger.git
-cd GoveeBTTempLogger
 sudo apt install bluetooth bluez libbluetooth-dev dpkg-dev
-make deb
-sudo make install-deb
+git clone https://github.com/wcbonner/GoveeBTTempLogger.git
+cmake -S GoveeBTTempLogger -B GoveeBTTempLogger/build
+cmake --build GoveeBTTempLogger/build
+pushd GoveeBTTempLogger/build && cpack . && popd
 ```
 
-This will install a systemd unit `goveebttemplogger.service` which will automatically start GoveeBTTempLogger. The service can be configured using environment variables via
+The install package will install a systemd unit `goveebttemplogger.service` which will automatically start GoveeBTTempLogger. The service can be configured using environment variables via
 the `systemctl edit goveebttemplogger.service` command. By default, it writes logs to `/var/log/goveebttemplogger` and writes SVG files to `/var/www/html/goveebttemplogger`.
 
 The following environment variables control the service:
@@ -155,6 +156,8 @@ For the longest time I've had fixed values set in my code for Scan Window and Sc
 The values are in increments of 0.625 msec. The First value was 11.25 msec, and the second value was  (5000 msec).
 Doing a bunch of reading I came across recommendations to use 40 msec and 30 msec, so I've tried bt_ScanInterval(64) and bt_ScanWindow(48). When it's set this way, I seem to get advertisments, but I'm not able to connect and download.
 
+## --only ff:ff:ff:ff:ff:ff Hack
+I included a hack some time ago related to the bluetooth filtering to easily filter on devices that have already been logged. If a filter is specified with all the bits set, the program will submit a filter of known addresses to the stack when scanning is started. This disables new device discovery, but may improve performance in some situations.
 
 Connections on bluetooth devices are all based on handles and UUIDs. There are some defined UUIDs that every bluetooth device is required to support, and then there are custom UUIDs. This listing came from a GVH5177. 
 ```
