@@ -185,7 +185,7 @@ if len(sys.argv) > 1 and sys.argv[1] == '--system':
     idx = 1
     system = True
     logInfo("System mode is on")
-    sleepTime = 60 * 15
+    sleepTime = 60 * 60 * 2 # 2 hours
 
 if len(sys.argv) > idx + 1:
     folder_path = sys.argv[idx]
