@@ -172,24 +172,27 @@ def latest_files(file_list):
     latest_files = {}
 
     for file in file_list:
-        filename = os.path.basename(file)
-        # Split the file name into components
-        parts = filename.split('-')
+        try:
+            filename = os.path.basename(file)
+            # Split the file name into components
+            parts = filename.split('-')
 
-        # Extract the ID and date
-        id = parts[1]
-        dateStr = parts[2] + '-' + parts[3].split('.')[0]
-        date = datetime.strptime(dateStr, '%Y-%m')
+            # Extract the ID and date
+            id = parts[1]
+            dateStr = parts[2] + '-' + parts[3].split('.')[0]
+            date = datetime.strptime(dateStr, '%Y-%m')
 
-        # If this ID is not in the dictionary or this file is more recent, update the dictionary
-        if id not in latest_files or date > latest_files[id][1]:
-            latest_files[id] = (file, date)
+            # If this ID is not in the dictionary or this file is more recent, update the dictionary
+            if id not in latest_files or date > latest_files[id][1]:
+                latest_files[id] = (file, date)
+        except Exception as e:
+            print(f"Skipping file {file}: {e}")
 
     # Return only the file names from the dictionary
     return [file for file, date in latest_files.values()]
 
 # # Test with a list of file names
-# file_list = ["/path/gvh-A4C1383BB160-2023-09.txt", "/path/gvh-A4C1383BB160-2023-08.txt", "/path/gvh-B4D1383BB161-2023-07.txt", "/path/gvh-B4D1383BB161-2023-10.txt"]
+# file_list = ["path/stuff", "/path/gvh-A4C1383BB160-2023-09.txt", "/path/gvh-A4C1383BB160-2023-08.txt", "/path/gvh-B4D1383BB161-2023-07.txt", "/path/gvh-B4D1383BB161-2023-10.txt"]
 # print(latest_files(file_list))
 
 
