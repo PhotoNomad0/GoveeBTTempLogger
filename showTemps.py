@@ -222,12 +222,13 @@ backupCount = 0
 sleepTime = 60
 if len(sys.argv) > 1:
     if findMatch(sys.argv, '--system'):
-        idx = 1
+        idx += 1
         system = True
         logInfo("System mode is on")
         sleepTime = 60 * 60 * 2 # 2 hours
 
     if findMatch(sys.argv, '--backup'):
+        idx += 1
         backup = True
         backupTime = 60 * 60 * 2 # 2 hours
         backupInterval = int(backupTime/sleepTime)
@@ -319,6 +320,7 @@ while True:
         files = files_
         logging.info(F"Data Files found in path: {files}")
 
+    print(F"Data Files found in {folder_path}: {files}")
     for file in files:
         measurement = None
         if simulate:
