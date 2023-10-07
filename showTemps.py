@@ -363,7 +363,9 @@ while True:
     now = getTime()
     timeout = False
 
+    print("sensors.values()", sensors.values())
     for s in sensors.values():
+        print("s", s)
         if ('label' in s) and ('temp' in s):
             sensorLabel = s['label']
             temp_ = s['temp']
