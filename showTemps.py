@@ -296,7 +296,7 @@ def backupData():
         runCommand(command, "Backup HTML")
         backupCount = backupInterval
 
-    backupInterval -= 1
+    backupCount -= 1
 
 def restartMeasurementService():
     logError('### Measurements are HUNG!')
