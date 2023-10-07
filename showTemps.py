@@ -320,7 +320,6 @@ while True:
         files = files_
         logging.info(F"Data Files found in path: {files}")
 
-    print(F"Data Files found in {folder_path}: {files}")
     for file in files:
         measurement = None
         if simulate:
@@ -365,9 +364,7 @@ while True:
     now = getTime()
     timeout = False
 
-    print("sensors.values()", sensors.values())
     for s in sensors.values():
-        print("s", s)
         if ('label' in s) and ('temp' in s):
             sensorLabel = s['label']
             temp_ = s['temp']
