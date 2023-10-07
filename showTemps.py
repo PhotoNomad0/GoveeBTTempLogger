@@ -289,9 +289,9 @@ def backupData():
 
     if (backupCount <= 0):
         print("Doing backup")
-        command = "rsync -arvWutpO --modify-window=61 --ignore-errors --progress /var/log/goveebttemplogger/* /mnt/macExtern/temp-temp/Govee/log/"
+        command = "rsync -arvWutpO --modify-window=61 --ignore-errors --progress /var/log/goveebttemplogger/ /mnt/macExtern/temp-temp/Govee/log/"
         runCommand(command, "Backup Log")
-        command = "rsync -arvWutpO --modify-window=61 --ignore-errors --progress /var/www/html/goveebttemplogger/* /mnt/macExtern/temp-temp/Govee/html/"
+        command = "rsync -arvWutpO --modify-window=61 --ignore-errors --progress /var/www/html/goveebttemplogger/ /mnt/macExtern/temp-temp/Govee/html/"
         runCommand(command, "Backup HTML")
         backupCount = backupInterval
 
