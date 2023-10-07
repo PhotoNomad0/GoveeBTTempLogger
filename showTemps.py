@@ -205,16 +205,34 @@ def convert_celsius_to_fahrenheit(celsius):
     fahrenheit = (celsius * 1.8) + 32
     return fahrenheit
 
+
+def findMatch(array, target):
+    for string in array:
+        if string == target:
+            return True
+    return False
+
+
 folder_path = "/var/log/goveebttemplogger"
 
 idx = 0
 system = False
+backupInterval = 0
+backupCount = 0
 sleepTime = 60
-if len(sys.argv) > 1 and sys.argv[1] == '--system':
-    idx = 1
-    system = True
-    logInfo("System mode is on")
-    sleepTime = 60 * 60 * 2 # 2 hours
+if len(sys.argv) > 1:
+    if findMatch(sys.argv, '--system'):
+        idx = 1
+        system = True
+        logInfo("System mode is on")
+        sleepTime = 60 * 60 * 2 # 2 hours
+
+    if findMatch(sys.argv, '--backup'):
+        backup = True
+        backupTime = 60 * 60 * 2 # 2 hours
+        backupInterval = int(backupTime/sleepTime)
+        logInfo(f"backup mode is on, every {backupInterval} counts of {sleepTime}")
+        backupCount = -1
 
 if len(sys.argv) > idx + 1:
     folder_path = sys.argv[idx]
@@ -249,25 +267,48 @@ def getTime():
     return datetime.now().astimezone()
 
 
-def restartMeasurementService():
-    logError('### Measurements are HUNG!')
-    command = "systemctl restart goveebttemplogger"
-
+def runCommand(command, title):
     try:
         result = subprocess.run(command.split(), capture_output=True)
         if result.returncode == 0:
-            logInfo("Templogger Service restarted")
-            return
+            print(f"Command '{title}' was successful")
+            return True
 
         else:
-            logError(f"Command failed with error: {result.stderr}")
+            logError(f"Command '{title}' failed with error: {result.stderr}")
+            logError(f"Failed to run '{command}'")
 
     except Exception as e:
-        print(f"An error occurred restarting service: {e}")
+        logError(f"An error occurred running Command '{title}': {e}")
+
+    return False
+
+
+def backupData():
+    global backupCount, backupInterval
+
+    if (backupCount <= 0):
+        print("Doing backup")
+        command = "rsync -arvWutpO --modify-window=61 --ignore-errors --progress /var/log/goveebttemplogger/* /mnt/macExtern/temp-temp/Govee/log"
+        runCommand(command, "Backup Log")
+        command = "rsync -arvWutpO --modify-window=61 --ignore-errors --progress /var/www/html/goveebttemplogger/* /mnt/macExtern/temp-temp/Govee/html"
+        runCommand(command, "Backup HTML")
+        backupCount = backupInterval
+
+    backupInterval -= 1
+
+def restartMeasurementService():
+    logError('### Measurements are HUNG!')
+    command = "systemctl restart goveebttemplogger"
+    runCommand(command, "Templogger Service restarted")
 
 
 while True:
     # print(clearScreen)
+    if backup:
+        backupData()
+        print("backupCount=", backupCount)
+
     if simulate:
         files_ = list(simulate[1].keys())
     else:
