@@ -17,7 +17,7 @@ if (POLICY CMP0141)
 endif()
 
 project (GoveeBTTempLogger
-    VERSION 2.20230922.7
+    VERSION 2.20231016.2
     DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments"
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )
@@ -73,6 +73,7 @@ install(FILES goveebttemplogger.service
 
 set(CPACK_GENERATOR "DEB")
 set(CPACK_PACKAGE_CONTACT "wcbonner@users.noreply.github.com")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "William C Bonner <${CPACK_PACKAGE_CONTACT}>")
 include(InstallRequiredSystemLibraries)
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
@@ -81,4 +82,5 @@ set(CPACK_DEBIAN_PACKAGE_SECTION custom)
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/postinst" "${CMAKE_CURRENT_SOURCE_DIR}/prerm" "${CMAKE_CURRENT_SOURCE_DIR}/postrm")
 set(CPACK_STRIP_FILES YES)
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS YES)
+message(STATUS "Components to pack: ${CPACK_COMPONENTS_ALL}")
 include(CPack)

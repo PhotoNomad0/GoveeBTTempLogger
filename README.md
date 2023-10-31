@@ -13,7 +13,7 @@ GoveeBTTempLogger creates a log file, if specified by the -l or --log option, fo
 There seems to be a problem with Bluetooth on the Raspberry Pi Zero 2 W and Raspbian GNU/Linux 11 (bullseye) where BTLE Scanning doesn't start. It's reported to work on the same hardware if running Raspbian GNU/Linux 10 (buster) https://github.com/wcbonner/GoveeBTTempLogger/issues/50 Any suggestions for a solution are appreciated. 
 
 ### Minor update 2022-12-17
-Added the option --index to create an html index file based on the existing log files. Example command to create index: 
+Added the option --index to create an html index file based on the existing log files. This option creates an index file and exits without running any of the bluetooth code. It can be run without affecting a running instance of the program listening to Bluetooth advertisments. Example command to create index: 
 
 ```sh
 sudo /usr/local/bin/goveebttemplogger --log /var/log/goveebttemplogger/ --index index.html
@@ -58,7 +58,7 @@ If the --svg option is not added to the command line, the program should continu
 This seems to better build the debian package with the correct installed size, dependencies, and md5sums details. I'm still learning CMake so there may be regular updates for a while.
 
 ```sh
-sudo apt install bluetooth bluez libbluetooth-dev dpkg-dev
+sudo apt install build-essential cmake git libbluetooth-dev
 git clone https://github.com/wcbonner/GoveeBTTempLogger.git
 cmake -S GoveeBTTempLogger -B GoveeBTTempLogger/build
 cmake --build GoveeBTTempLogger/build
@@ -68,22 +68,42 @@ pushd GoveeBTTempLogger/build && cpack . && popd
 The install package will install a systemd unit `goveebttemplogger.service` which will automatically start GoveeBTTempLogger. The service can be configured using environment variables via
 the `systemctl edit goveebttemplogger.service` command. By default, it writes logs to `/var/log/goveebttemplogger` and writes SVG files to `/var/www/html/goveebttemplogger`.
 
-The following environment variables control the service:
+There are several `ExecStartPre` lines to confirm the directories used exist. To use different directories, both this location and the parameter on the ExecStart line need to be changed.
 
-* `VERBOSITY` controlls the verbosity level; default: `0`
-* `LOGDIR` directory the TSV files are written to; default: `/var/log/goveebttemplogger`
-* `TIME` Sets the frequency data is written to the logs; default: `60`
-* `SVGARGS` controlls options for writing SVG files; default: `--svg /var/www/html/goveebttemplogger/ --battery 8 --minmax 8`
-* `EXTRAARGS` can be used to pass extra arguments; default is unset (empty)
-
-As an example, to disable SVG files, increase verbosity, and change the directory the TSV files are written to, use 
-`sudo systemctl edit goveebttemplogger.service` and enter the following file in the editor:
+The systemd unit file section `ExecStart` to start the service has been broken into several lines for clarity.
 
 ```
 [Service]
-Environment="VERBOSITY=1"
-Environment="LOGDIR=/opt/govee/data"
-Environment="SVGARGS="
+Type=simple
+Restart=always
+RestartSec=5
+ExecStartPre=/bin/mkdir -p /var/log/goveebttemplogger
+ExecStartPre=/bin/mkdir -p /var/www/html/goveebttemplogger
+ExecStartPre=/bin/mkdir -p /var/cache/goveebttemplogger
+ExecStart=/usr/local/bin/goveebttemplogger \
+    --verbose 0 \
+    --log /var/log/goveebttemplogger \
+    --time 60 \
+    --svg /var/www/html/goveebttemplogger --battery 8 --minmax 8 \
+    --cache /var/cache/goveebttemplogger \
+    --download
+KillSignal=SIGINT
+```
+
+As an example, to disable SVG files, increase verbosity, and change the directory the log files are written to, use 
+`sudo systemctl edit --full goveebttemplogger.service` and enter the following file in the editor:
+```
+[Service]
+Type=simple
+Restart=always
+RestartSec=5
+ExecStartPre=/bin/mkdir -p /var/log/gvh
+ExecStart=/usr/local/bin/goveebttemplogger \
+    --verbose 1 \
+    --log /var/log/gvh \
+    --time 60 \
+    --download
+KillSignal=SIGINT
 ```
 
 Then use `sudo systemctl restart goveebttemplogger` to restart GoveeBTTempLogger.
@@ -109,7 +129,7 @@ sudo apt install bluetooth bluez libbluetooth-dev -y
  * -a (--average) Affects MRTG output. The parameter is a number of minutes. 0 simply returns the last value in the log file. Any number more than zero will average the entries over that number of minutes. If no entries were logged in that time period, no results are returned. MRTG graphing is then determined by the setting of the unknaszero option in the MRTG.conf file.
  * -d (--download) download the 20 days historical data from each device. This is still very much a work in progress.
  * -s (--svg) SVG output directory. Writes four SVG files per device to this directory every 5 minutes that can be used in standard web page. 
- * -i (--index) HTML index file for SVG files, must be paired with log directory. HTML file is a fully qualified name. This is meant as a one time run option just to create a simple index of all the SVG files.
+ * -i (--index) HTML index file for SVG files, must be paired with log directory. HTML file is a fully qualified name. This is meant as a one time run option just to create a simple index of all the SVG files. The program will exit after creating the index file.
  * -T (--titlemap) SVG-title fully-qualified-filename. A mapfile with bluetooth addresses as the beginning of each line, and a replacement title to be used in the SVG graph.
  * -c (--celsius) SVG output using degrees C
  * -b (--battery) Draw the battery status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly
