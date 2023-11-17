@@ -1,5 +1,22 @@
 #!/usr/bin/python3.9
 
+# showTemps.py - periodically checks the GoveeBTTempLogger log files and displays latest temp/humidity/battery levels
+#
+# command line arguments:
+#
+#  --system <= sets system mode (requires sudo) avery 2 hours will check if readings are hung - if so will restart GoveeBTTempLogger service
+#                 *** not sure if this fixes anything
+#
+#  --backup <= every couple hours will backup GoveeBTTempLogger data.
+#
+#  optional path to GoveeBTTempLogger log files
+#
+#  Notes:
+#
+# - alarm settings are set in `limits`
+# - sensor configuration for monitoring is at /var/www/html/goveebttemplogger/gvh-titlemap.txt
+#
+
 import os
 import sys
 import glob
@@ -24,10 +41,12 @@ clearScreen = '\033[2J'
 logging.basicConfig(filename='GoveeBTTempLogger.log', format='%(asctime)s - %(levelname)s - %(message)s', level=logging.DEBUG)
 
 gardenLow = 41
+porchLow = gardenLow + 5
+batteryLow = 25
 limits = {
     "all": {
         "battery": {
-            "low": 25
+            "low": batteryLow
         }
     },
     "crawl": {
@@ -47,7 +66,7 @@ limits = {
     },
     "porch": {
         "temp" : {
-            "low": gardenLow + 5
+            "low": porchLow
         }
     },
     "living": {
@@ -72,7 +91,10 @@ simulateData = [
         "A4C1387C05A8": "2023-09-10 09:09:51	19	80	15"
     }
 ]
-simulate = None # set to simulateData for testing
+
+########################################################
+# assign to simulateData for local debugging
+simulate = None
 
 
 def logInfo(msg):
@@ -163,6 +185,8 @@ def extract_last_line(data):
 
     return None
 
+############################
+# # for testing
 # line = "2023-09-10 09:09:50	-5	56.4	100\n2023-09-10 09:09:51	-5	56.4	99\n"
 # lline = extract_last_line(line)
 # print(lline)
@@ -191,6 +215,7 @@ def latest_files(file_list):
     # Return only the file names from the dictionary
     return [file for file, date in latest_files.values()]
 
+############################
 # # Test with a list of file names
 # file_list = ["path/stuff", "/path/gvh-A4C1383BB160-2023-09.txt", "/path/gvh-A4C1383BB160-2023-08.txt", "/path/gvh-B4D1383BB161-2023-07.txt", "/path/gvh-B4D1383BB161-2023-10.txt"]
 # print(latest_files(file_list))
