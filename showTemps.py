@@ -241,7 +241,7 @@ def findMatch(array, target):
 folder_path = "/var/log/goveebttemplogger"
 
 system = False
-backup = True
+backup = False
 idx = 0
 backupInterval = 0
 backupCount = 0
