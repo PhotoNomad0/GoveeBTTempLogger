@@ -298,10 +298,13 @@ def runCommand(command, title):
     try:
         result = subprocess.run(command.split(), capture_output=True)
         if result.returncode == 0:
-            print(f"Command '{title}' was successful")
+            output = result.stdout.decode('utf-8')
+            print(f"Command '{title}' was successful:\n{output}")
             return True
 
         else:
+            output = result.stdout.decode('utf-8')
+            print(f"Command '{title}' Failed:\n{output}")
             logError(f"Command '{title}' failed with error: {result.stderr}")
             logError(f"Failed to run '{command}'")
 
