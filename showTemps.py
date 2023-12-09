@@ -148,13 +148,13 @@ def read_end_file(file_path, num_chars=128):
     try:
         with open(file_path, 'r') as file:
             file.seek(0, 2)  # Seek to the end of the file
-            try:
-                file.seek(file.tell() - num_chars, 0)  # Seek to the position num_chars characters before the end
-                return file.read() # read to end of file
-            except Exception as e:
-                # print(f"seek failed: {e}")
+            pos = file.tell() - num_chars  # Seek to the position num_chars characters before the end
+            if (pos > 0):
+                file.seek(pos, 0) # if valid position, move to pos
+            else:
                 file.seek(0, 0)  # Seek to the start of the file
-                return file.read() # read to end of file
+
+            return file.read() # read to end of file
 
     except FileNotFoundError:
         print(f"File {file_path} not found.")
