@@ -144,6 +144,22 @@ def setColorIfLimit(atLimit, limitColor, defaultColor):
 def list_txt_files(folder_path):
     return glob.glob(f"{folder_path}/*.txt")
 
+def read_end_file(file_path, num_chars=128):
+    try:
+        with open(file_path, 'r') as file:
+            file.seek(0, 2)  # Seek to the end of the file
+            file.seek(file.tell() - num_chars, 0)  # Seek to the position num_chars characters before the end
+            return file.read()
+    except FileNotFoundError:
+        print(f"File {file_path} not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    return None
+
+# data = read_end_file('./test-data/gvh-A4C138A06791-2023-11.txt')
+# print(data)
+# exit()
+
 def read_file(file_path):
     try:
         with open(file_path, 'r') as file:
@@ -167,19 +183,19 @@ def extract_last_line(data):
         if pos >= 0:
             line = extractLine(data, pos + 1, endPos)
             if line and len(line) > 0:
-                print ("Found at pos=", pos, "len=", len(line), ", line", line)
+                # print ("Found at pos=", pos, "len=", len(line), ", line", line)
                 return line
-            else:
-                print ("Line not found at pos=", pos, "to endPos=", endPos, "len=", len(line))
+            # else:
+                # print ("Line not found at pos=", pos, "to endPos=", endPos, "len=", len(line))
 
         if pos < 0:
             npos = 0
             line = extractLine(data, npos, endPos)
             if line and len(line) > 0:
-                print ("Found at pos=", npos, "len=", len(line), ", line", line)
+                # print ("Found at pos=", npos, "len=", len(line), ", line", line)
                 return line
-            else:
-                print ("Line not found at pos=", npos, "to endPos=", endPos, "len=", len(line))
+            # else:
+            #     print ("Line not found at pos=", npos, "to endPos=", endPos, "len=", len(line))
 
         endPos = pos - 1
 
@@ -222,9 +238,13 @@ def latest_files(file_list):
 
 
 def read_last_line(file_path):
-    data = read_file(file_path)
+    data = read_end_file(file_path)
     line = extract_last_line(data)
     return line
+
+# data = read_last_line('./test-data/gvh-A4C138A06791-2023-11.txt')
+# print(data)
+# exit()
 
 def convert_celsius_to_fahrenheit(celsius):
     fahrenheit = (celsius * 1.8) + 32
