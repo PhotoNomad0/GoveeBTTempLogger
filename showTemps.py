@@ -412,6 +412,24 @@ while True:
                 sensors[sensorId]['battery'] = battery
                 sensors[sensorId]['humidity'] = humidityStr
 
+                if 'average' in sensors[sensorId]:
+                    averageTemp = sensors[sensorId]['averageTemp']
+                else:
+                    averageTemp = temp
+
+                newAverage = averageTemp + (temp - averageTemp) / 20
+                sensors[sensorId]['averageTemp'] = newAverage
+                tempDirection = temp - averageTemp
+
+                if (tempDirection > 0):
+                    tempMarker = '^'
+                elif (tempDirection == 0):
+                    tempMarker = '~'
+                else:
+                    tempMarker = 'v'
+
+                sensors[sensorId]['direction'] = tempMarker
+
     print(blackText + "\n===================================================\n" +
           "Temp\tHumidty\tBattery\tLocation\tTime"
           )
@@ -428,6 +446,7 @@ while True:
             humidityState = setColor(humidity_, 'humidity', sensorLabel)
             battery_ = s['battery']
             batteryState = setColor(battery_, 'battery', sensorLabel, blueText)
+            direction = s['direction']
 
             sampleTime = s['date']
             # Calculate time difference
@@ -440,10 +459,10 @@ while True:
 
             sampleTimeState = setColorIfLimit(oldMeasurement, redText, defaultColorText)
             sampleTimeStr = sampleTimeState + sampleTime.strftime(date_format)
-            tempStr = tempState + temp_ + 'F'
+            tempStr = direction + tempState + temp_ + 'F'
             battery = batteryState + battery_ + '%'
             humidityStr = humidityState + humidity_ + '%'
-            line = greenText + tempStr + '\t' + humidityStr + '\t' + battery + '\t' + blackText + sensorLabel + '\t' + sampleTimeStr + blackText
+            line = blackText + tempStr + '\t' + humidityStr + '\t' + battery + '\t' + blackText + sensorLabel + '\t' + sampleTimeStr + blackText
             print(line)
 
     if timeout and system:
