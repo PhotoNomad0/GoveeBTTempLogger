@@ -271,7 +271,8 @@ backup = False
 idx = 0
 backupInterval = 0
 backupCount = 0
-sleepTime = 60
+sleepTime = 60 # interval between display updates in seconds
+averageAmount = 20 # number of intervals to average
 if len(sys.argv) > 1:
     if findMatch(sys.argv, '--system'):
         idx += 1
@@ -417,10 +418,10 @@ while True:
                 else:
                     averageTemp = temp
 
-                newAverage = averageTemp + (temp - averageTemp) / 20
-                sensors[sensorId]['averageTemp'] = newAverage
                 tempDirection = temp - averageTemp
-                # print(sensorId, temp, averageTemp, newAverage)
+                newAverage = averageTemp + (tempDirection) / averageAmount
+                sensors[sensorId]['averageTemp'] = newAverage
+                # print(sensorId, temp, averageTemp, tempDirection)
 
                 if (tempDirection > 0):
                     tempMarker = '∧' # rising
