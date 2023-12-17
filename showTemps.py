@@ -423,11 +423,11 @@ while True:
                 # print(sensorId, temp, averageTemp, newAverage)
 
                 if (tempDirection > 0):
-                    tempMarker = '^'
+                    tempMarker = '∧' # rising
                 elif (tempDirection == 0):
-                    tempMarker = '~'
+                    tempMarker = ' ' # steady
                 else:
-                    tempMarker = 'v'
+                    tempMarker = '∨' # falling
 
                 sensors[sensorId]['direction'] = tempMarker
 
