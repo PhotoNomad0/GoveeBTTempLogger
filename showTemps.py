@@ -273,6 +273,9 @@ backupInterval = 0
 backupCount = 0
 sleepTime = 60 # interval between display updates in seconds
 averageAmount = 20 # number of intervals to average
+quietTempDeltaThreshold = 0.1
+activeTempDeltaThreshold = 0.3
+
 if len(sys.argv) > 1:
     if findMatch(sys.argv, '--system'):
         idx += 1
@@ -421,14 +424,21 @@ while True:
                 tempDirection = temp - averageTemp
                 newAverage = averageTemp + (tempDirection) / averageAmount
                 sensors[sensorId]['averageTemp'] = newAverage
-                # print(sensorId, temp, averageTemp, tempDirection)
+                print(sensorLabel, temp, averageTemp, tempDirection)
 
-                if (tempDirection > 0):
-                    tempMarker = '∧' # rising
-                elif (tempDirection == 0):
+                magnitude = abs(tempDirection)
+                quiet = magnitude <= quietTempDeltaThreshold
+                active = magnitude >= activeTempDeltaThreshold
+
+                if quiet:
                     tempMarker = ' ' # steady
+                elif (tempDirection > 0):
+                    tempMarker = '∧' # rising
                 else:
                     tempMarker = '∨' # falling
+
+                if active:
+                    tempMarker = redText + tempMarker
 
                 sensors[sensorId]['direction'] = tempMarker
 
