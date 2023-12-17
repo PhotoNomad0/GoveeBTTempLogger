@@ -420,6 +420,7 @@ while True:
                 newAverage = averageTemp + (temp - averageTemp) / 20
                 sensors[sensorId]['averageTemp'] = newAverage
                 tempDirection = temp - averageTemp
+                # print(sensorId, temp, averageTemp, newAverage)
 
                 if (tempDirection > 0):
                     tempMarker = '^'
