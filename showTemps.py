@@ -412,7 +412,7 @@ while True:
                 sensors[sensorId]['battery'] = battery
                 sensors[sensorId]['humidity'] = humidityStr
 
-                if 'average' in sensors[sensorId]:
+                if 'averageTemp' in sensors[sensorId]:
                     averageTemp = sensors[sensorId]['averageTemp']
                 else:
                     averageTemp = temp
