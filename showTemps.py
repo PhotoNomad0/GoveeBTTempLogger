@@ -273,8 +273,8 @@ backupInterval = 0
 backupCount = 0
 sleepTime = 60 # interval between display updates in seconds
 averageAmount = 20 # number of intervals to average
-quietTempDeltaThreshold = 0.1
-activeTempDeltaThreshold = 0.3
+quietTempDeltaThreshold = 0.2
+activeTempDeltaThreshold = 0.5
 
 if len(sys.argv) > 1:
     if findMatch(sys.argv, '--system'):
