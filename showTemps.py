@@ -499,7 +499,7 @@ while True:
         else:
             line += greenText
         line += upsLine + blackText
-        print(line, end="")
+        print(line, end="", flush=True)
 
     time.sleep(sleepTime)
 
