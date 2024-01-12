@@ -500,6 +500,7 @@ while True:
         line = 'UPS Status: '
         color = redText
         suffix = blackText + '  '
+        total = ''
         upsMeasureCnt += 1
         if upsLine == 'OL':
             color = greenText
@@ -508,17 +509,19 @@ while True:
             color = blueText
             if upsChargeCnt > 0:
                 chargePercent = 100 * upsChargeCnt / upsMeasureCnt
-                suffix += 'Chrg ' + format(chargePercent, '.1f') + '%  '
+                suffix += blackText + 'Chrg ' + format(chargePercent, '.1f') + '%  '
         elif "OB" in s:
             upsPowerOffCnt += 1
             if upsPowerOffCnt > 0:
-                suffix += 'Off ' + redText + str(upsPowerOffCnt) + '  '
+                suffix += blackText + 'Off ' + redText + str(upsPowerOffCnt) + '  '
+                total = blackText + 'Ttl ' + str(upsMeasureCnt) + '  '
         else:
             upsFaultCnt += 1
             if upsFaultCnt > 0:
-                suffix += 'Flt ' + redText + str(upsFaultCnt) + '  '
+                suffix += blackText + 'Flt ' + redText + str(upsFaultCnt) + '  '
+                total = blackText + 'Ttl ' + str(upsMeasureCnt) + '  '
 
-        line += color + upsLine + blackText + suffix
+        line += color + upsLine + blackText + suffix + total
         print(line, end="", flush=True)
 
     time.sleep(sleepTime)
