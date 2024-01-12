@@ -362,7 +362,7 @@ def getUps():
     command = "upsc myups@localhost ups.status"
     results = runCommand(command, "UPS Status")
     if results != False:
-        data = results.strip().split(': ')
+        data = results.strip().split(': ')[0]
     else:
         data = 'Read Error'
     return data
