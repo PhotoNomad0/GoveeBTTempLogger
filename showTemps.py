@@ -325,12 +325,13 @@ def getTime():
     return datetime.now().astimezone()
 
 
-def runCommand(command, title):
+def runCommand(command, title, quiet=False):
     try:
         result = subprocess.run(command.split(), capture_output=True)
         if result.returncode == 0:
             output = result.stdout.decode('utf-8')
-            print(f"Command '{title}' was successful:\n{output}")
+            if not quiet:
+                print(f"Command '{title}' was successful:\n{output}")
             return output
 
         else:
@@ -360,7 +361,7 @@ def backupData():
 
 def getUps():
     command = "upsc myups@localhost ups.status"
-    results = runCommand(command, "UPS Status")
+    results = runCommand(command, "UPS Status", True)
     if results != False:
         data = results.strip().split(': ')[0]
     else:
