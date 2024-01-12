@@ -508,7 +508,7 @@ while True:
             color = blueText
             if upsChargeCnt > 0:
                 chargePercent = 100 * upsChargeCnt / upsMeasureCnt
-                suffix = 'Chrg ' + round(chargePercent, 1) + '%'
+                suffix = 'Chrg ' + format(chargePercent, '.1f') + '%'
         if "OB" in s:
             upsPowerOffCnt += 1
             if upsPowerOffCnt > 0:
