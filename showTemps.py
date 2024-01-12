@@ -359,9 +359,9 @@ def backupData():
 
     backupCount -= 1
 
-def getUps():
-    command = "upsc myups@localhost ups.status"
-    results = runCommand(command, "UPS Status", True)
+def getUps(cmd):
+    command = "upsc myups@localhost " + cmd
+    results = runCommand(command, "UPS State: " + cmd, True)
     if results != False:
         data = results.strip().split(': ')[0]
     else:
@@ -492,7 +492,7 @@ while True:
         restartMeasurementService()
 
     if ups:
-        upsLine = getUps()
+        upsLine = getUps('ups.status')
         line = 'UPS Status: '
         if upsLine != 'OL':
             line += redText
