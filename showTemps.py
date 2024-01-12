@@ -268,6 +268,7 @@ folder_path = "/var/log/goveebttemplogger"
 
 system = False
 backup = False
+ups = True
 idx = 0
 backupInterval = 0
 backupCount = 0
@@ -330,7 +331,7 @@ def runCommand(command, title):
         if result.returncode == 0:
             output = result.stdout.decode('utf-8')
             print(f"Command '{title}' was successful:\n{output}")
-            return True
+            return output
 
         else:
             output = result.stdout.decode('utf-8')
@@ -356,6 +357,15 @@ def backupData():
         backupCount = backupInterval
 
     backupCount -= 1
+
+def getUps():
+    command = "upsc myups@localhost ups.status"
+    results = runCommand(command, "UPS Status")
+    if results != False:
+        data = results.strip().split(': ')
+    else:
+        data = 'Read Error'
+    return data
 
 def restartMeasurementService():
     logError('### Measurements are HUNG!')
@@ -479,6 +489,14 @@ while True:
 
     if timeout and system:
         restartMeasurementService()
+
+    if ups:
+        upsLine = getUps()
+        line = 'UPS Status: '
+        if upsLine != 'OL':
+            line = redText
+        line += upsLine + blackText
+        print(line)
 
     time.sleep(sleepTime)
 
