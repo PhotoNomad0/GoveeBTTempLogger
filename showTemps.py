@@ -269,6 +269,10 @@ folder_path = "/var/log/goveebttemplogger"
 system = False
 backup = False
 ups = True
+upsMeasureCnt = 0
+upsChargeCnt = 0
+upsPowerOffCnt = 0
+upsFaultCnt = 0
 idx = 0
 backupInterval = 0
 backupCount = 0
@@ -495,11 +499,26 @@ while True:
         upsLine = getUps('ups.status')
         line = 'UPS Status: '
         color = redText
+        suffix = blackText + '  '
+        upsMeasureCnt += 1
         if upsLine == 'OL':
             color = greenText
         elif upsLine == 'OL CHRG':
+            upsChargeCnt += 1
             color = blueText
-        line += color + upsLine + blackText
+            if upsChargeCnt > 0:
+                chargePercent = 100 * upsChargeCnt / upsMeasureCnt
+                suffix = 'Chrg ' + round(chargePercent, 1) + '%'
+        if "OB" in s:
+            upsPowerOffCnt += 1
+            if upsPowerOffCnt > 0:
+                suffix = 'Off ' + redText + upsPowerOffCnt + '  '
+        else:
+            upsFaultCnt += 1
+            if upsFaultCnt > 0:
+                suffix = 'Flt ' + redText + upsFaultCnt + '  '
+
+        line += color + upsLine + blackText + suffix
         print(line, end="", flush=True)
 
     time.sleep(sleepTime)
