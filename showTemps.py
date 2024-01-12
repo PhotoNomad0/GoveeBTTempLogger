@@ -508,15 +508,15 @@ while True:
             color = blueText
             if upsChargeCnt > 0:
                 chargePercent = 100 * upsChargeCnt / upsMeasureCnt
-                suffix = 'Chrg ' + format(chargePercent, '.1f') + '%'
+                suffix += 'Chrg ' + format(chargePercent, '.1f') + '%'
         elif "OB" in s:
             upsPowerOffCnt += 1
             if upsPowerOffCnt > 0:
-                suffix = 'Off ' + redText + str(upsPowerOffCnt) + '  '
+                suffix += 'Off ' + redText + str(upsPowerOffCnt) + '  '
         else:
             upsFaultCnt += 1
             if upsFaultCnt > 0:
-                suffix = 'Flt ' + redText + str(upsFaultCnt) + '  '
+                suffix += 'Flt ' + redText + str(upsFaultCnt) + '  '
 
         line += color + upsLine + blackText + suffix
         print(line, end="", flush=True)
