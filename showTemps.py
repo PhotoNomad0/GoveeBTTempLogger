@@ -494,11 +494,12 @@ while True:
     if ups:
         upsLine = getUps('ups.status')
         line = 'UPS Status: '
-        if upsLine != 'OL':
-            line += redText
-        else:
-            line += greenText
-        line += upsLine + blackText
+        color = redText
+        if upsLine == 'OL':
+            color = greenText
+        elif upsLine == 'OL CHRG':
+            color = blueText
+        line += color + upsLine + blackText
         print(line, end="", flush=True)
 
     time.sleep(sleepTime)
