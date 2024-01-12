@@ -495,6 +495,8 @@ while True:
         line = 'UPS Status: '
         if upsLine != 'OL':
             line = redText
+        else:
+            line = greenText
         line += upsLine + blackText
         print(line)
 
