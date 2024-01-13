@@ -287,13 +287,14 @@ activeTempDeltaThreshold = 0.5
 
 if len(sys.argv) > 1:
     if findMatch(sys.argv, '--system'):
-        idx += 1
+        idx += 1 # increment pointer to folder path
         system = True
         logInfo("System mode is on")
         sleepTime = 60 * 60 * 2 # 2 hours
 
     interval = findMatch(sys.argv, '--interval=', True)
     if interval:
+        idx += 1 # increment pointer to folder path
         sleepTime_ = int(interval)
         if sleepTime_ <= 0: # sanity check
             sleepTime_ = 1
@@ -304,7 +305,7 @@ if len(sys.argv) > 1:
         averageAmount = averageAmount_
 
     if findMatch(sys.argv, '--backup'):
-        idx += 1
+        idx += 1 # increment pointer to folder path
         backup = True
         backupTime = 60 * 60 * 2 # 2 hours
         backupInterval = int(backupTime/sleepTime)
