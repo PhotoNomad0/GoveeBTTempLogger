@@ -384,6 +384,9 @@ while True:
         backupData()
         print("backupCount=", backupCount)
 
+    if ups:
+        print("upsMeasureCnt=", upsMeasureCnt, "upsChargeCnt=", upsChargeCnt, "upsPowerOffCnt=", upsPowerOffCnt, "upsFaultCnt=", upsFaultCnt)
+
     if simulate:
         files_ = list(simulate[1].keys())
     else:
@@ -512,14 +515,16 @@ while True:
                 suffix += blackText + 'Chrg ' + format(chargePercent, '.1f') + '%  '
         elif "OB" in s:
             upsPowerOffCnt += 1
-            if upsPowerOffCnt > 0:
-                suffix += blackText + 'Off ' + redText + str(upsPowerOffCnt) + '  '
-                total = blackText + 'Ttl ' + str(upsMeasureCnt) + '  '
         else:
             upsFaultCnt += 1
-            if upsFaultCnt > 0:
-                suffix += blackText + 'Flt ' + redText + str(upsFaultCnt) + '  '
-                total = blackText + 'Ttl ' + str(upsMeasureCnt) + '  '
+
+        if upsPowerOffCnt > 0:
+            suffix += blackText + 'Off ' + redText + str(upsPowerOffCnt) + '  '
+            total = blackText + 'Ttl ' + str(upsMeasureCnt) + '  '
+
+        if upsFaultCnt > 0:
+            suffix += blackText + 'Flt ' + redText + str(upsFaultCnt) + '  '
+            total = blackText + 'Ttl ' + str(upsMeasureCnt) + '  '
 
         line += color + upsLine + blackText + suffix + total
         print(line, end="", flush=True)
