@@ -294,8 +294,14 @@ if len(sys.argv) > 1:
 
     interval = findMatch(sys.argv, '--interval=', True)
     if interval:
-        sleepTime = int(interval)
-        logInfo(f"Interval changed to {sleepTime}")
+        sleepTime_ = int(interval)
+        if sleepTime_ <= 0: # sanity check
+            sleepTime_ = 1
+        logInfo(f"Interval changed to {sleepTime_}")
+        averageAmount_ = averageAmount * (sleepTime/sleepTime_) # adjust the averaging amount proportionally to change in sleeptime
+        sleepTime = sleepTime_
+        logInfo(f"Average ammount changed from {averageAmount} to {averageAmount_}")
+        averageAmount = averageAmount_
 
     if findMatch(sys.argv, '--backup'):
         idx += 1
