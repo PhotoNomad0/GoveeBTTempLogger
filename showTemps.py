@@ -264,7 +264,7 @@ def findMatch(array, target, prefix=False):
             return True
         if prefix:
             if string[0:tarLen] == target:
-                return string[tarLen+1:]
+                return string[tarLen:]
     return False
 
 
@@ -389,6 +389,7 @@ def restartMeasurementService():
 
 while True:
     # print(clearScreen)
+    print()
     if backup:
         backupData()
         print("backupCount=", backupCount)
