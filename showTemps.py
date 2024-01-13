@@ -532,13 +532,14 @@ while True:
         elif upsLine == 'OL CHRG':
             upsChargeCnt += 1
             color = blueText
-            if upsChargeCnt > 0:
-                chargePercent = 100 * upsChargeCnt / upsMeasureCnt
-                suffix += blackText + 'Chrg ' + format(chargePercent, '.1f') + '%  '
         elif "OB" in s:
             upsPowerOffCnt += 1
         else:
             upsFaultCnt += 1
+
+        if upsChargeCnt > 0:
+            chargePercent = 100 * upsChargeCnt / upsMeasureCnt
+            suffix += blackText + 'Chrg ' + format(chargePercent, '.1f') + '%  '
 
         if upsPowerOffCnt > 0:
             suffix += blackText + 'Off ' + redText + str(upsPowerOffCnt) + '  '
