@@ -280,6 +280,7 @@ upsFaultCnt = 0
 idx = 0
 backupInterval = 0
 backupCount = 0
+defaultBackupTime = 60 * 60 * 2  # 2 hours
 sleepTime = 60 # interval between display updates in seconds
 averageAmount = 60 # number of intervals to average
 quietTempDeltaThreshold = 0.2
@@ -299,16 +300,20 @@ if len(sys.argv) > 1:
         if sleepTime_ <= 0: # sanity check
             sleepTime_ = 1
         logInfo(f"Interval changed to {sleepTime_}")
-        averageAmount_ = averageAmount * (sleepTime/sleepTime_) # adjust the averaging amount proportionally to change in sleeptime
+        adjustmentRatio = (sleepTime / sleepTime_)
+        averageAmount_ = averageAmount * adjustmentRatio  # adjust the averaging amount proportionally to change in sleeptime
         sleepTime = sleepTime_
         logInfo(f"Average ammount changed from {averageAmount} to {averageAmount_}")
         averageAmount = averageAmount_
+        if backupInterval != 0:
+            backupInterval_ = backupInterval * adjustmentRatio
+            logInfo(f"Backup interval adjusted from {backupInterval} to {backupInterval_}")
+            backupInterval = backupInterval_
 
     if findMatch(sys.argv, '--backup'):
         idx += 1 # increment pointer to folder path
         backup = True
-        backupTime = 60 * 60 * 2 # 2 hours
-        backupInterval = int(backupTime/sleepTime)
+        backupInterval = int(defaultBackupTime/sleepTime)
         logInfo(f"backup mode is on, every {backupInterval} counts of {sleepTime}")
         backupCount = -1
 
