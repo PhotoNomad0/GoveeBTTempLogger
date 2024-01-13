@@ -257,10 +257,14 @@ def convert_celsius_to_fahrenheit(celsius):
     return fahrenheit
 
 
-def findMatch(array, target):
+def findMatch(array, target, prefix=False):
+    tarLen = len(target)
     for string in array:
         if string == target:
             return True
+        if prefix:
+            if string[0:tarLen] == target:
+                return string[tarLen+1:]
     return False
 
 
@@ -287,6 +291,11 @@ if len(sys.argv) > 1:
         system = True
         logInfo("System mode is on")
         sleepTime = 60 * 60 * 2 # 2 hours
+
+    interval = findMatch(sys.argv, '--interval=', True)
+    if interval:
+        sleepTime = int(interval)
+        logInfo(f"Interval changed to {sleepTime}")
 
     if findMatch(sys.argv, '--backup'):
         idx += 1
