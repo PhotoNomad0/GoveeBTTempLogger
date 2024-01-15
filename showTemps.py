@@ -277,6 +277,7 @@ upsMeasureCnt = 0
 upsChargeCnt = 0
 upsPowerOffCnt = 0
 upsFaultCnt = 0
+lastUpsError = None
 idx = 0
 backupInterval = 0
 backupCount = 0
@@ -332,6 +333,7 @@ logInfo(f"Print Interval seconds: {sleepTime}")
 logInfo(f"Sensor Data: {sensorsData}")
 sensors = {}
 files = []
+lastCommandError = None
 
 if sensorsData:
     for sensorLine in sensorsData:
@@ -362,11 +364,12 @@ def runCommand(command, title, quiet=False):
         else:
             output = result.stdout.decode('utf-8')
             print(f"Command '{title}' Failed:\n{output}")
-            logError(f"Command '{title}' failed with error: {result.stderr}")
-            logError(f"Failed to run '{command}'")
+            lastCommandError = f"Command '{title}' failed to run '{command}', got error: {result.stderr}"
+            logError(lastCommandError)
 
     except Exception as e:
-        logError(f"An error occurred running Command '{title}': {e}")
+        lastCommandError = f"An exception occurred running Command '{title}': {e}"
+        logError(lastCommandError)
 
     return False
 
@@ -385,12 +388,14 @@ def backupData():
     backupCount -= 1
 
 def getUps(cmd):
+    global lastUpsError
     command = "upsc myups@localhost " + cmd
     results = runCommand(command, "UPS State: " + cmd, True)
     if results != False:
         data = results.strip().split(': ')[0]
     else:
         data = 'Read Error'
+        lastUpsError = lastCommandError
     return data
 
 def restartMeasurementService():
@@ -407,6 +412,8 @@ while True:
         print("backupCount=", backupCount)
 
     if ups:
+        if lastUpsError:
+            print(lastUpsError)
         print("upsMeasureCnt=", upsMeasureCnt, "upsChargeCnt=", upsChargeCnt, "upsPowerOffCnt=", upsPowerOffCnt, "upsFaultCnt=", upsFaultCnt)
 
     if simulate:
