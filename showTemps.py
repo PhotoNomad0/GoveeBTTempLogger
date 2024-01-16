@@ -472,7 +472,8 @@ while True:
                 tempDirection = temp - averageTemp
                 newAverage = averageTemp + (tempDirection) / averageAmount
                 sensors[sensorId]['averageTemp'] = newAverage
-                print(sensorLabel, temp, averageTemp, tempDirection)
+                # print(sensorLabel, temp, averageTemp, tempDirection)
+                print(f'{sensorLabel}: {temp:.2f}, {averageTemp:.4f}, {tempDirection:.4f}')
 
                 magnitude = abs(tempDirection)
                 quiet = magnitude <= quietTempDeltaThreshold
