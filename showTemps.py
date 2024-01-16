@@ -389,6 +389,7 @@ def backupData():
 
 def getUps(cmd):
     global lastUpsError
+
     command = "upsc myups@localhost " + cmd
     results = runCommand(command, "UPS State: " + cmd, True)
     if results != False:
@@ -533,16 +534,21 @@ while True:
         color = redText
         suffix = blackText + '  '
         total = ''
+        message = upsLine
         upsMeasureCnt += 1
         if upsLine == 'OL':
             color = greenText
+            message = "READY"
         elif upsLine == 'OL CHRG':
             upsChargeCnt += 1
             color = blueText
-        elif "OB" in s:
+            message = "CHARGING"
+        elif "OB" in upsLine:
             upsPowerOffCnt += 1
+            message = "LINE OFF - " + upsLine
         else:
             upsFaultCnt += 1
+            message = "FAULT - " + upsLine
 
         if upsChargeCnt > 0:
             chargePercent = 100 * upsChargeCnt / upsMeasureCnt
@@ -556,7 +562,7 @@ while True:
             suffix += blackText + 'Flt ' + redText + str(upsFaultCnt) + '  '
             total = blackText + 'Ttl ' + str(upsMeasureCnt) + '  '
 
-        line += color + upsLine + blackText + suffix + total
+        line += color + message + blackText + suffix + total
         print(line, end="", flush=True)
 
     time.sleep(sleepTime)
