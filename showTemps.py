@@ -416,7 +416,7 @@ def getUps(cmd):
     else:
         data = 'Read Error'
         if lastUpsError != lastCommandError:
-            logError('new UPS ERROR: ' + lastCommandError)
+            logError('new UPS read ERROR: ' + lastCommandError)
         lastUpsError = lastCommandError
 
     return data
@@ -471,7 +471,8 @@ def showUpsState():
 
     if upsLastState != message: # if UPS has changed state
         if not upsFault:
-            logInfo('UPS fault cleared, was ' + upsLastState)
+            if upsInFault: # if UPS was in fault, but now cleared
+                logInfo('UPS fault cleared, was ' + upsLastState)
         else:
             logError('UPS fault: ' + message)
 
