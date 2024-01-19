@@ -294,6 +294,8 @@ upsMeasureCnt = 0
 upsChargeCnt = 0
 upsPowerOffCnt = 0
 upsFaultCnt = 0
+upsLastState = ''
+upsInFault = False
 lastUpsError = None
 idx = 0
 backupInterval = 0
@@ -413,13 +415,68 @@ def getUps(cmd):
         data = results.strip().split(': ')[0]
     else:
         data = 'Read Error'
+        if lastUpsError != lastCommandError:
+            logError('new UPS ERROR: ' + lastCommandError)
         lastUpsError = lastCommandError
+
     return data
 
 def restartMeasurementService():
     logError('### Measurements are HUNG!')
     command = "systemctl restart goveebttemplogger"
     runCommand(command, "Templogger Service restarted")
+
+
+def showUpsState():
+    global line, upsLastState, upsInFault, upsMeasureCnt, upsChargeCnt, upsPowerOffCnt, upsFaultCnt
+    upsLine = getUps('ups.status')
+    line = 'UPS Status: '
+    color = redText
+    suffix = blackText + '  '
+    total = ''
+    message = upsLine
+    upsFault = False
+    upsMeasureCnt += 1
+
+    if upsLine == 'OL':
+        color = greenText
+        message = "READY"
+    elif upsLine == 'OL CHRG':
+        upsChargeCnt += 1
+        color = blueText
+        message = "CHARGING"
+    elif "OB" in upsLine:
+        upsPowerOffCnt += 1
+        message = "LINE OFF - " + upsLine
+        upsFault = True
+    else:
+        upsFaultCnt += 1
+        message = "FAULT - " + upsLine
+        upsFault = True
+
+    if upsChargeCnt > 0:
+        chargePercent = 100 * upsChargeCnt / upsMeasureCnt
+        suffix += blackText + 'Chrg ' + format(chargePercent, '.1f') + '%  '
+
+    if upsPowerOffCnt > 0:
+        suffix += blackText + 'Off ' + redText + str(upsPowerOffCnt) + '  '
+        total = blackText + 'Ttl ' + str(upsMeasureCnt) + '  '
+
+    if upsFaultCnt > 0:
+        suffix += blackText + 'Flt ' + redText + str(upsFaultCnt) + '  '
+        total = blackText + 'Ttl ' + str(upsMeasureCnt) + '  '
+
+    line += color + message + blackText + suffix + total
+    print(line, end="", flush=True)
+
+    if upsLastState != message: # if UPS has changed state
+        if not upsFault:
+            logInfo('UPS fault cleared, was ' + upsLastState)
+        else:
+            logError('UPS fault: ' + message)
+
+    upsLastState = message
+    upsInFault = upsFault
 
 
 while True:
@@ -547,41 +604,7 @@ while True:
         restartMeasurementService()
 
     if ups:
-        upsLine = getUps('ups.status')
-        line = 'UPS Status: '
-        color = redText
-        suffix = blackText + '  '
-        total = ''
-        message = upsLine
-        upsMeasureCnt += 1
-        if upsLine == 'OL':
-            color = greenText
-            message = "READY"
-        elif upsLine == 'OL CHRG':
-            upsChargeCnt += 1
-            color = blueText
-            message = "CHARGING"
-        elif "OB" in upsLine:
-            upsPowerOffCnt += 1
-            message = "LINE OFF - " + upsLine
-        else:
-            upsFaultCnt += 1
-            message = "FAULT - " + upsLine
-
-        if upsChargeCnt > 0:
-            chargePercent = 100 * upsChargeCnt / upsMeasureCnt
-            suffix += blackText + 'Chrg ' + format(chargePercent, '.1f') + '%  '
-
-        if upsPowerOffCnt > 0:
-            suffix += blackText + 'Off ' + redText + str(upsPowerOffCnt) + '  '
-            total = blackText + 'Ttl ' + str(upsMeasureCnt) + '  '
-
-        if upsFaultCnt > 0:
-            suffix += blackText + 'Flt ' + redText + str(upsFaultCnt) + '  '
-            total = blackText + 'Ttl ' + str(upsMeasureCnt) + '  '
-
-        line += color + message + blackText + suffix + total
-        print(line, end="", flush=True)
+        showUpsState()
 
     time.sleep(sleepTime)
 
