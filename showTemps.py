@@ -38,7 +38,24 @@ whiteText = '\033[37m'
 whiteBackground = '\033[47m'
 clearScreen = '\033[2J'
 
-logging.basicConfig(filename='GoveeBTTempLogger.log', format='%(asctime)s - %(levelname)s - %(message)s', level=logging.DEBUG)
+def getLogFileName():
+    """
+    Calculates a log file name based on the current date
+    :return: string
+    """
+    # Get the current date
+    today = datetime.now()
+
+    # Convert the date to a string
+    date_string = today.strftime("%Y-%m-%d")
+
+    return 'GoveeBTTempLogger-' + date_string + '.log'
+
+
+logFile = getLogFileName()
+print("Using Log file", logFile)
+
+logging.basicConfig(filename=logFile, format='%(asctime)s - %(levelname)s - %(message)s', level=logging.DEBUG)
 
 gardenLow = 41
 porchLow = gardenLow + 5
