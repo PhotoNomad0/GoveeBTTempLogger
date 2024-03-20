@@ -12,7 +12,7 @@
 #  optional path to GoveeBTTempLogger log files
 #
 #  Notes:
-#
+# - the server saves readings in `/var/log/goveebttemplogger`
 # - alarm settings are set in `limits`
 # - sensor configuration for monitoring is at /var/www/html/goveebttemplogger/gvh-titlemap.txt
 #
@@ -520,19 +520,26 @@ while True:
             sensors[sensorId] = {}
 
         if len(sensorId) == 12:
+            data = ''
+            data0= ''
+
             if not simulate:
                 measurement = read_last_line(file)
             if measurement:
-                data = measurement.strip().split('\t')
-                # print(file,"='", measurement, "'")
-                time_ = datetime.strptime(data[0], date_format).replace(tzinfo=timezone.utc)
-                temp = float(data[1])
-                temp = convert_celsius_to_fahrenheit(temp)
-                tempStr = "{:.1f}".format(temp)
-                humidity = float(data[2])
-                humidityStr = "{:.0f}".format(humidity)
-                battery = data[3]
-                sampleTime = time_.astimezone()
+                try:
+                    data = measurement.strip().split('\t')
+                    # print(file,"='", measurement, "'")
+                    data0 = data[0]
+                    time_ = datetime.strptime(data0, date_format).replace(tzinfo=timezone.utc)
+                    temp = float(data[1])
+                    temp = convert_celsius_to_fahrenheit(temp)
+                    tempStr = "{:.1f}".format(temp)
+                    humidity = float(data[2])
+                    humidityStr = "{:.0f}".format(humidity)
+                    battery = data[3]
+                    sampleTime = time_.astimezone()
+                except Exception as e:
+                    print(f"An error occurred: {e} parsing {file}, line='{data0}' data='{data}'")
 
                 sensors[sensorId]['date'] = sampleTime
                 sensors[sensorId]['temp'] = tempStr
