@@ -21,7 +21,7 @@ if (POLICY CMP0115)
 endif()
 
 project (GoveeBTTempLogger
-    VERSION 2.20231109.2
+    VERSION 2.20240312.0
     DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments"
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )
@@ -29,7 +29,7 @@ project (GoveeBTTempLogger
 configure_file(goveebttemplogger-version.h.in goveebttemplogger-version.h)
 
 # Add source to this project's executable.
-add_executable (goveebttemplogger goveebttemplogger.cpp goveebttemplogger-version.h att-types.h uuid.c uuid.h)
+add_executable (goveebttemplogger goveebttemplogger.cpp goveebttemplogger-version.h att-types.h uuid.c uuid.h wimiso8601.cpp wimiso8601.h)
 target_link_libraries(goveebttemplogger -lbluetooth -lstdc++fs)
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
@@ -41,13 +41,15 @@ target_include_directories(goveebttemplogger PUBLIC
                            ${EXTRA_INCLUDES}
                            )
 
-add_custom_command(TARGET goveebttemplogger POST_BUILD
-    COMMAND sudo setcap 'cap_net_raw,cap_net_admin+eip' $<TARGET_FILE:goveebttemplogger>
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMENT "Setting Raw Priveleges on $<TARGET_FILE:goveebttemplogger>"
-)
+if(EXISTS "/etc/rpi-issue")
+	add_custom_command(TARGET goveebttemplogger POST_BUILD
+	    COMMAND sudo setcap 'cap_net_raw,cap_net_admin+eip' $<TARGET_FILE:goveebttemplogger>
+	    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+	    COMMENT "Setting Raw Priveleges on $<TARGET_FILE:goveebttemplogger>"
+	)
+endif()
 
-add_executable(gvh-organizelogs gvh-organizelogs.cpp goveebttemplogger-version.h)
+add_executable(gvh-organizelogs gvh-organizelogs.cpp goveebttemplogger-version.h wimiso8601.cpp wimiso8601.h)
 target_link_libraries(gvh-organizelogs -lbluetooth -lstdc++fs)
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
@@ -66,12 +68,12 @@ add_test(NAME gvh-organizelogs COMMAND gvh-organizelogs --help)
 
 install(TARGETS goveebttemplogger gvh-organizelogs
     DESTINATION bin
-    RUNTIME DESTINATION "/usr/local/bin/"
-    LIBRARY DESTINATION "/usr/local/lib/"
+    RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+    LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
 )
 
 install(FILES goveebttemplogger.service
-    DESTINATION "/usr/local/lib/systemd/system"
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system
     COMPONENT "goveebttemplogger"
 )
 

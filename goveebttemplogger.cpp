@@ -76,6 +76,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <queue>
+#include <random>
 #include <regex>
 #include <set>
 #include <sstream>
@@ -88,6 +89,7 @@
 #include <unistd.h> // For close()
 #include <utime.h>
 #include <vector>
+#include "wimiso8601.h"
 #include "att-types.h"
 #include "uuid.h"
 
@@ -100,91 +102,6 @@
 #endif // !GoveeBTTempLogger_VERSION
 /////////////////////////////////////////////////////////////////////////////
 static const std::string ProgramVersionString("GoveeBTTempLogger Version " GoveeBTTempLogger_VERSION " Built on: " __DATE__ " at " __TIME__);
-/////////////////////////////////////////////////////////////////////////////
-std::string timeToISO8601(const time_t & TheTime, const bool LocalTime = false)
-{
-	std::ostringstream ISOTime;
-	struct tm UTC;
-	struct tm* timecallresult(nullptr);
-	if (LocalTime)
-		timecallresult = localtime_r(&TheTime, &UTC);
-	else
-		timecallresult = gmtime_r(&TheTime, &UTC);
-	if (nullptr != timecallresult)
-	{
-		ISOTime.fill('0');
-		if (!((UTC.tm_year == 70) && (UTC.tm_mon == 0) && (UTC.tm_mday == 1)))
-		{
-			ISOTime << UTC.tm_year + 1900 << "-";
-			ISOTime.width(2);
-			ISOTime << UTC.tm_mon + 1 << "-";
-			ISOTime.width(2);
-			ISOTime << UTC.tm_mday << "T";
-		}
-		ISOTime.width(2);
-		ISOTime << UTC.tm_hour << ":";
-		ISOTime.width(2);
-		ISOTime << UTC.tm_min << ":";
-		ISOTime.width(2);
-		ISOTime << UTC.tm_sec;
-	}
-	return(ISOTime.str());
-}
-std::string getTimeISO8601(const bool LocalTime = false)
-{
-	time_t timer;
-	time(&timer);
-	std::string isostring(timeToISO8601(timer, LocalTime));
-	std::string rval;
-	rval.assign(isostring.begin(), isostring.end());
-	return(rval);
-}
-time_t ISO8601totime(const std::string & ISOTime)
-{
-	time_t timer(0);
-	if (ISOTime.length() >= 19)
-	{
-		struct tm UTC;
-		UTC.tm_year = stoi(ISOTime.substr(0, 4)) - 1900;
-		UTC.tm_mon = stoi(ISOTime.substr(5, 2)) - 1;
-		UTC.tm_mday = stoi(ISOTime.substr(8, 2));
-		UTC.tm_hour = stoi(ISOTime.substr(11, 2));
-		UTC.tm_min = stoi(ISOTime.substr(14, 2));
-		UTC.tm_sec = stoi(ISOTime.substr(17, 2));
-		UTC.tm_gmtoff = 0;
-		UTC.tm_isdst = -1;
-		UTC.tm_zone = 0;
-		#ifdef _MSC_VER
-		_tzset();
-		_get_daylight(&(UTC.tm_isdst));
-		#endif
-		#ifdef __USE_MISC
-		timer = timegm(&UTC);
-		if (timer == -1)
-			return(0);	// if timegm() returned an error value, leave time set at epoch
-		#else
-		timer = mktime(&UTC);
-		if (timer == -1)
-			return(0);	// if mktime() returned an error value, leave time set at epoch
-		timer -= timezone; // HACK: Works in my initial testing on the raspberry pi, but it's currently not DST
-		#endif
-		#ifdef _MSC_VER
-		long Timezone_seconds = 0;
-		_get_timezone(&Timezone_seconds);
-		timer -= Timezone_seconds;
-		int DST_hours = 0;
-		_get_daylight(&DST_hours);
-		long DST_seconds = 0;
-		_get_dstbias(&DST_seconds);
-		timer += DST_hours * DST_seconds;
-		#endif
-	}
-	return(timer);
-}
-// Microsoft Excel doesn't recognize ISO8601 format dates with the "T" seperating the date and time
-// This function puts a space where the T goes for ISO8601. The dates can be decoded with ISO8601totime()
-std::string timeToExcelDate(const time_t & TheTime, const bool LocalTime = false) { std::string ExcelDate(timeToISO8601(TheTime, LocalTime)); ExcelDate.replace(10, 1, " "); return(ExcelDate); }
-std::string timeToExcelLocal(const time_t& TheTime) { return(timeToExcelDate(TheTime, true)); }
 /////////////////////////////////////////////////////////////////////////////
 #ifndef BT_HCI_CMD_LE_SET_EXT_SCAN_PARAMS
 #define BT_HCI_CMD_LE_SET_EXT_SCAN_PARAMS		0x2041
@@ -254,6 +171,32 @@ int hci_le_set_ext_scan_enable(int dd, uint8_t enable, uint8_t filter_dup, int t
 	return 0;
 }
 #endif // !BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE
+#ifndef BT_HCI_CMD_LE_SET_RANDOM_ADDRESS
+// 2023-11-29 Added this function to fix problem with Raspberry Pi Zero 2 W Issue https://github.com/wcbonner/GoveeBTTempLogger/issues/50
+int hci_le_set_random_address(int dd, int to)
+{
+	le_set_random_address_cp scan_cp{ 0 };
+	std::default_random_engine generator(std::chrono::system_clock::now().time_since_epoch().count());	// 2023-12-01 switch to c++ std library <random>
+	for (auto & b : scan_cp.bdaddr.b)
+		b = generator() % 256;
+	uint8_t status;
+	struct hci_request rq;
+	memset(&rq, 0, sizeof(rq));
+	rq.ogf = OGF_LE_CTL;
+	rq.ocf = OCF_LE_SET_RANDOM_ADDRESS;
+	rq.cparam = &scan_cp;
+	rq.clen = sizeof(scan_cp);
+	rq.rparam = &status;
+	rq.rlen = 1;
+	if (hci_send_req(dd, &rq, to) < 0)
+		return -1;
+	if (status) {
+		errno = EIO;
+		return -1;
+	}
+	return 0;
+}
+#endif // BT_HCI_CMD_LE_SET_RANDOM_ADDRESS
 /////////////////////////////////////////////////////////////////////////////
 int ConsoleVerbosity(1);
 bool UseBluetooth(true);
@@ -282,12 +225,15 @@ enum class ThermometerType
 	H5074 = 5074, 
 	H5075 = 5075, 
 	H5100 = 5100,
+	H5101 = 5101,
+	H5104 = 5104,
+	H5105 = 5105,
 	H5174 = 5174,
 	H5177 = 5177,
 	H5179 = 5179,
 	H5183 = 5183, 
 	H5182 = 5182,
-	H5181 = 5181
+	H5181 = 5181,
 };
 class  Govee_Temp {
 public:
@@ -460,6 +406,12 @@ ThermometerType Govee_Temp::SetModel(const std::string& Name)
 		Model = ThermometerType::H5177;
 	else if (0 == Name.substr(0, 8).compare("GVH5100_"))
 		Model = ThermometerType::H5100;
+	else if (0 == Name.substr(0, 8).compare("GVH5101_"))
+		Model = ThermometerType::H5101;
+	else if (0 == Name.substr(0, 8).compare("GVH5104_"))
+		Model = ThermometerType::H5104;
+	else if (0 == Name.substr(0, 8).compare("GVH5105_"))
+		Model = ThermometerType::H5105;
 	else if (0 == Name.substr(0, 8).compare("GVH5174_"))
 		Model = ThermometerType::H5174;
 	else if (0 == Name.substr(0, 12).compare("Govee_H5179_"))
@@ -937,14 +889,14 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 		if (!PersistenceData.empty())
 		{
 			if (ConsoleVerbosity > 0)
-				for (auto iter = PersistenceData.begin(); iter != PersistenceData.end(); iter++)
-					std::cout << "[-------------------] [" << ba2string(iter->first) << "] " << timeToISO8601(iter->second) << std::endl;
+				for (auto & iter : PersistenceData)
+					std::cout << "[-------------------] [" << ba2string(iter.first) << "] " << timeToISO8601(iter.second) << std::endl;
 			// If PersistenceData has updated information, write new data to file
 			std::filesystem::path filename(LogDirectory / GVHLastDownloadFileName);
 			time_t MostRecentDownload(0);
-			for (auto it = PersistenceData.begin(); it != PersistenceData.end(); ++it)
-				if (MostRecentDownload < it->second)
-					MostRecentDownload = it->second;
+			for (auto & it : PersistenceData)
+				if (MostRecentDownload < it.second)
+					MostRecentDownload = it.second;
 			bool NewData(true);
 			struct stat64 StatBuffer;
 			StatBuffer.st_mtim.tv_sec = 0;
@@ -959,8 +911,8 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 				std::ofstream PersistenceFile(filename, std::ios_base::out | std::ios_base::trunc);
 				if (PersistenceFile.is_open())
 				{
-					for (auto it = PersistenceData.begin(); it != PersistenceData.end(); ++it)
-						PersistenceFile << ba2string(it->first) << "\t" << timeToISO8601(it->second) << std::endl;
+					for (auto & it : PersistenceData)
+						PersistenceFile << ba2string(it.first) << "\t" << timeToISO8601(it.second) << std::endl;
 					PersistenceFile.close();
 					struct utimbuf Persistut;
 					Persistut.actime = MostRecentDownload;
@@ -1394,6 +1346,7 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::filesystem::path& S
 				SVGFile << "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>" << std::endl;
 				SVGFile << "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"" << SVGWidth << "\" height=\"" << SVGHeight << "\">" << std::endl;
 				SVGFile << "\t<!-- Created by: " << ProgramVersionString << " -->" << std::endl;
+				SVGFile << "\t<clipPath id=\"GraphRegion\"><polygon points=\"" << GraphLeft << "," << GraphTop << " " << GraphRight << "," << GraphTop << " " << GraphRight << "," << GraphBottom << " " << GraphLeft << "," << GraphBottom << "\" /></clipPath>" << std::endl;
 				SVGFile << "\t<style>" << std::endl;
 				SVGFile << "\t\ttext { font-family: sans-serif; font-size: " << FontSize << "px; fill: black; }" << std::endl;
 				SVGFile << "\t\tline { stroke: black; }" << std::endl;
@@ -1416,23 +1369,23 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::filesystem::path& S
 				int LegendIndex = 1;
 				SVGFile << "\t<text x=\"" << GraphLeft << "\" y=\"" << GraphTop - 2 << "\">" << Title << "</text>" << std::endl;
 				SVGFile << "\t<text style=\"text-anchor:end\" x=\"" << GraphRight << "\" y=\"" << GraphTop - 2 << "\">" << timeToExcelLocal(TheValues[0].Time) << "</text>" << std::endl;
-				SVGFile << "\t<text style=\"fill:blue;text-anchor:middle\" x=\"" << FontSize * LegendIndex << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize * LegendIndex << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendTemperature << "</text>" << std::endl;
+				SVGFile << "\t<text style=\"fill:blue;text-anchor:middle\" x=\"" << FontSize * LegendIndex << "\" y=\"50%\" transform=\"rotate(270 " << FontSize * LegendIndex << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendTemperature << "</text>" << std::endl;
 				if (DrawHumidity)
 				{
 					LegendIndex++;
-					SVGFile << "\t<text style=\"fill:green;text-anchor:middle\" x=\"" << FontSize * LegendIndex << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize * LegendIndex << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendHumidity << "</text>" << std::endl;
+					SVGFile << "\t<text style=\"fill:green;text-anchor:middle\" x=\"" << FontSize * LegendIndex << "\" y=\"50%\" transform=\"rotate(270 " << FontSize * LegendIndex << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendHumidity << "</text>" << std::endl;
 				}
 				if (DrawBattery)
 				{
 					LegendIndex++;
-					SVGFile << "\t<text style=\"fill:OrangeRed\" text-anchor=\"middle\" x=\"" << FontSize * LegendIndex << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize * LegendIndex << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendBattery << "</text>" << std::endl;
+					SVGFile << "\t<text style=\"fill:OrangeRed\" text-anchor=\"middle\" x=\"" << FontSize * LegendIndex << "\" y=\"50%\" transform=\"rotate(270 " << FontSize * LegendIndex << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendBattery << "</text>" << std::endl;
 				}
 				if (DrawHumidity)
 				{
 					if (MinMax)
 					{
 						SVGFile << "\t<!-- Humidity Max -->" << std::endl;
-						SVGFile << "\t<polygon style=\"fill:lime;stroke:green\" points=\"";
+						SVGFile << "\t<polygon style=\"fill:lime;stroke:green;clip-path:url(#GraphRegion)\" points=\"";
 						SVGFile << GraphLeft + 1 << "," << GraphBottom - 1 << " ";
 						for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 							SVGFile << index + GraphLeft << "," << int(((HumiMax - TheValues[index].GetHumidityMax()) * HumiVerticalFactor) + GraphTop) << " ";
@@ -1442,7 +1395,7 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::filesystem::path& S
 							SVGFile << GraphRight - (GraphWidth - TheValues.size()) << "," << GraphBottom - 1;
 						SVGFile << "\" />" << std::endl;
 						SVGFile << "\t<!-- Humidity Min -->" << std::endl;
-						SVGFile << "\t<polygon style=\"fill:lime;stroke:green\" points=\"";
+						SVGFile << "\t<polygon style=\"fill:lime;stroke:green;clip-path:url(#GraphRegion)\" points=\"";
 						SVGFile << GraphLeft + 1 << "," << GraphBottom - 1 << " ";
 						for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 							SVGFile << index + GraphLeft << "," << int(((HumiMax - TheValues[index].GetHumidityMin()) * HumiVerticalFactor) + GraphTop) << " ";
@@ -1456,7 +1409,7 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::filesystem::path& S
 					{
 						// Humidity Graphic as a Filled polygon
 						SVGFile << "\t<!-- Humidity -->" << std::endl;
-						SVGFile << "\t<polygon style=\"fill:lime;stroke:green\" points=\"";
+						SVGFile << "\t<polygon style=\"fill:lime;stroke:green;clip-path:url(#GraphRegion)\" points=\"";
 						SVGFile << GraphLeft + 1 << "," << GraphBottom - 1 << " ";
 						for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 							SVGFile << index + GraphLeft << "," << int(((HumiMax - TheValues[index].GetHumidity()) * HumiVerticalFactor) + GraphTop) << " ";
@@ -1470,15 +1423,15 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::filesystem::path& S
 
 				// Top Line
 				SVGFile << "\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphTop << "\"/>" << std::endl;
-				SVGFile << "\t<text style=\"fill:blue;text-anchor:end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop + 5 << "\">" << std::fixed << std::setprecision(1) << TempMax << "</text>" << std::endl;
+				SVGFile << "\t<text style=\"fill:blue;text-anchor:end;dominant-baseline:middle\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop << "\">" << std::fixed << std::setprecision(1) << TempMax << "</text>" << std::endl;
 				if (DrawHumidity)
-					SVGFile << "\t<text style=\"fill:green\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + 4 << "\">" << std::fixed << std::setprecision(1) << HumiMax << "</text>" << std::endl;
+					SVGFile << "\t<text style=\"fill:green;dominant-baseline:middle\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop << "\">" << std::fixed << std::setprecision(1) << HumiMax << "</text>" << std::endl;
 
 				// Bottom Line
 				SVGFile << "\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphBottom << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphBottom << "\"/>" << std::endl;
-				SVGFile << "\t<text style=\"fill:blue;text-anchor:end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphBottom + 5 << "\">" << std::fixed << std::setprecision(1) << TempMin << "</text>" << std::endl;
+				SVGFile << "\t<text style=\"fill:blue;text-anchor:end;dominant-baseline:middle\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphBottom << "\">" << std::fixed << std::setprecision(1) << TempMin << "</text>" << std::endl;
 				if (DrawHumidity)
-					SVGFile << "\t<text style=\"fill:green\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphBottom + 4 << "\">" << std::fixed << std::setprecision(1) << HumiMin << "</text>" << std::endl;
+					SVGFile << "\t<text style=\"fill:green;dominant-baseline:middle\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphBottom << "\">" << std::fixed << std::setprecision(1) << HumiMin << "</text>" << std::endl;
 
 				// Left Line
 				SVGFile << "\t<line x1=\"" << GraphLeft << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft << "\" y2=\"" << GraphBottom << "\"/>" << std::endl;
@@ -1490,9 +1443,9 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::filesystem::path& S
 				for (auto index = 1; index < 4; index++)
 				{
 					SVGFile << "\t<line style=\"stroke-dasharray:1\" x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphTop + (GraphVerticalDivision * index) << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphTop + (GraphVerticalDivision * index) << "\" />" << std::endl;
-					SVGFile << "\t<text style=\"fill:blue;text-anchor:end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop + 4 + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << TempMax - (TempVerticalDivision * index) << "</text>" << std::endl;
+					SVGFile << "\t<text style=\"fill:blue;text-anchor:end;dominant-baseline:middle\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << TempMax - (TempVerticalDivision * index) << "</text>" << std::endl;
 					if (DrawHumidity)
-						SVGFile << "\t<text style=\"fill:green\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + 4 + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << HumiMax - (HumiVerticalDivision * index) << "</text>" << std::endl;
+						SVGFile << "\t<text style=\"fill:green;dominant-baseline:middle\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << HumiMax - (HumiVerticalDivision * index) << "</text>" << std::endl;
 				}
 
 				// Horizontal Line drawn at the freezing point
@@ -1562,7 +1515,7 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::filesystem::path& S
 				{
 					// Temperature Values as a filled polygon showing the minimum and maximum
 					SVGFile << "\t<!-- Temperature MinMax -->" << std::endl;
-					SVGFile << "\t<polygon style=\"fill:blue;stroke:blue\" points=\"";
+					SVGFile << "\t<polygon style=\"fill:blue;stroke:blue;clip-path:url(#GraphRegion)\" points=\"";
 					for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 						SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index].GetTemperatureMax(Fahrenheit)) * TempVerticalFactor) + GraphTop) << " ";
 					for (auto index = (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()) - 1; index > 0; index--)
@@ -1573,7 +1526,7 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::filesystem::path& S
 				{
 					// Temperature Values as a continuous line
 					SVGFile << "\t<!-- Temperature -->" << std::endl;
-					SVGFile << "\t<polyline style=\"fill:none;stroke:blue\" points=\"";
+					SVGFile << "\t<polyline style=\"fill:none;stroke:blue;clip-path:url(#GraphRegion)\" points=\"";
 					for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 						SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index].GetTemperature(Fahrenheit)) * TempVerticalFactor) + GraphTop) << " ";
 					SVGFile << "\" />" << std::endl;
@@ -1584,7 +1537,7 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::filesystem::path& S
 				{
 					SVGFile << "\t<!-- Battery -->" << std::endl;
 					double BatteryVerticalFactor = (GraphBottom - GraphTop) / 100.0;
-					SVGFile << "\t<polyline style=\"fill:none;stroke:OrangeRed\" points=\"";
+					SVGFile << "\t<polyline style=\"fill:none;stroke:OrangeRed;clip-path:url(#GraphRegion)\" points=\"";
 					for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 						SVGFile << index + GraphLeft << "," << int(((100 - TheValues[index].GetBattery()) * BatteryVerticalFactor) + GraphTop) << " ";
 					SVGFile << "\" />" << std::endl;
@@ -2260,7 +2213,7 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 		bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList); // call this routine recursively to disable any existing scanning
 		if (!BT_WhiteList.empty())
 		{
-			const bdaddr_t TestAddress = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+			const bdaddr_t TestAddress = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }; // BDADDR_ALL;
 			if (TestAddress == *BT_WhiteList.begin()) // if first element in whitelist is FFFFFFFFFF
 			{
 				if (ConsoleVerbosity > 0)
@@ -2268,15 +2221,16 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 				else
 					if (difftime(TimeNow, LastScanEnableMessage) > (60 * 5)) // Reduce Spamming Syslog
 						std::cerr << "BlueTooth Address Filter:";
-				for (auto it = GoveeMRTGLogs.begin(); it != GoveeMRTGLogs.end(); it++)
+				for (auto & iter : GoveeMRTGLogs)
 				{
-					const bdaddr_t TheAddress = it->first;
-					hci_le_add_white_list(BlueToothDevice_Handle, &TheAddress, LE_PUBLIC_ADDRESS, bt_TimeOut);
+					const bdaddr_t FilterAddress(iter.first);
+					bool bRandomAddress = (FilterAddress.b[5] >> 4 == 0xC || FilterAddress.b[5] >> 4 == 0xD); // If the two most significant bits of the address are set to 1, it is defined as a Random Static Address
+					hci_le_add_white_list(BlueToothDevice_Handle, &FilterAddress, (bRandomAddress ? LE_RANDOM_ADDRESS : LE_PUBLIC_ADDRESS), bt_TimeOut);
 					if (ConsoleVerbosity > 0)
-						std::cout << " [" << ba2string(TheAddress) << "]";
+						std::cout << " [" << ba2string(FilterAddress) << "]";
 					else
 						if (difftime(TimeNow, LastScanEnableMessage) > (60 * 5)) // Reduce Spamming Syslog
-							std::cerr << " [" << ba2string(TheAddress) << "]";
+							std::cerr << " [" << ba2string(FilterAddress) << "]";
 				}
 				if (ConsoleVerbosity > 0)
 					std::cout << std::endl;
@@ -2286,12 +2240,18 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 			}
 			else
 			{
-				for (auto iter = BT_WhiteList.begin(); iter != BT_WhiteList.end(); iter++)
+				if (ConsoleVerbosity > 1)
+					std::cout << "[" << getTimeISO8601() << "] BlueTooth Address Filter:";
+				for (auto & iter : BT_WhiteList)
 				{
-					bdaddr_t FilterAddress = { 0 };
-					FilterAddress = *iter;
-					hci_le_add_white_list(BlueToothDevice_Handle, &FilterAddress, LE_PUBLIC_ADDRESS, bt_TimeOut);
+					const bdaddr_t FilterAddress(iter);
+					bool bRandomAddress = (FilterAddress.b[5] >> 4 == 0xC || FilterAddress.b[5] >> 4 == 0xD); // If the two most significant bits of the address are set to 1, it is defined as a Random Static Address
+					hci_le_add_white_list(BlueToothDevice_Handle, &FilterAddress, (bRandomAddress ? LE_RANDOM_ADDRESS : LE_PUBLIC_ADDRESS), bt_TimeOut);
+					if (ConsoleVerbosity > 1)
+						std::cout << " [" << ba2string(FilterAddress) << "]";
 				}
+				if (ConsoleVerbosity > 1)
+					std::cout << std::endl;
 			}
 			bt_ScanFilterPolicy = 0x01; // Scan Filter Policy: Accept only advertisements from devices in the White List. Ignore directed advertisements not addressed to this device (0x01)
 		}
@@ -2373,14 +2333,15 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 	{
 		// Bluetooth HCI Command - LE Create Connection (BD_ADDR: e3:5e:cc:21:5c:0f (e3:5e:cc:21:5c:0f))
 		uint16_t handle = 0;
+		bool bRandomAddress = (GoveeBTAddress.b[5] >> 4 == 0xC || GoveeBTAddress.b[5] >> 4 == 0xD); // If the two most significant bits of the address are set to 1, it is defined as a Random Static Address
 		int iRet = hci_le_create_conn(
 			BlueToothDevice_Handle,
 			96, // interval, Scan Interval: 96 (60 msec)
 			48, // window, Scan Window: 48 (30 msec)
 			0x00, // initiator_filter, Initiator Filter Policy: Use Peer Address (0x00)
-			0x00, // peer_bdaddr_type, Peer Address Type: Public Device Address (0x00)
+			(bRandomAddress ? LE_RANDOM_ADDRESS : LE_PUBLIC_ADDRESS), // peer_bdaddr_type, Peer Address Type: Public Device Address (0x00)
 			GoveeBTAddress, // BD_ADDR: e3:5e:cc:21:5c:0f (e3:5e:cc:21:5c:0f)
-			0x01, // own_bdaddr_type, Own Address Type: Random Device Address (0x01)
+			LE_RANDOM_ADDRESS, // own_bdaddr_type, Own Address Type: Random Device Address (0x01)
 			24, // min_interval, Connection Interval Min: 24 (30 msec)
 			40, // max_interval, Connection Interval Max: 40 (50 msec)
 			0, // latency, Connection Latency: 0 (number events)
@@ -2464,7 +2425,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 					memset(&dstaddr, 0, sizeof(dstaddr));
 					dstaddr.l2_family = AF_BLUETOOTH;
 					dstaddr.l2_cid = htobs(ATT_CID);
-					dstaddr.l2_bdaddr_type = BDADDR_LE_PUBLIC;
+					dstaddr.l2_bdaddr_type = bRandomAddress ? BDADDR_LE_RANDOM : BDADDR_LE_PUBLIC;
 					bacpy(&dstaddr.l2_bdaddr, &GoveeBTAddress);
 					if (connect(l2cap_socket, (struct sockaddr*)&dstaddr, sizeof(dstaddr)) < 0)
 					{
@@ -3119,7 +3080,7 @@ int main(int argc, char **argv)
 			std::cout << "[                   ] titlemap: " << SVGTitleMapFilename << std::endl;
 			std::cout << "[                   ]     time: " << LogFileTime << std::endl;
 			std::cout << "[                   ]  average: " << MinutesAverage << std::endl;
-			std::cout << "[                   ] download: " << DaysBetweenDataDownload << std::endl;
+			std::cout << "[                   ] download: " << DaysBetweenDataDownload << " (days betwen data download)" << std::endl;
 			std::cout << "[                   ]  passive: " << std::boolalpha << (bt_ScanType == 0) << std::endl;
 			std::cout << "[                   ] no-bluetooth: " << std::boolalpha << !UseBluetooth << std::endl;
 		}
@@ -3257,6 +3218,7 @@ int main(int argc, char **argv)
 					std::cerr << "[                   ] Error: Could set device to non-blocking: " << strerror(errno) << std::endl;
 				else
 				{
+					hci_le_set_random_address(BlueToothDevice_Handle, bt_TimeOut);	// 2023-11-29 Added this command to fix problem with Raspberry Pi Zero 2 W Issue #50
 					char LocalName[HCI_MAX_NAME_LENGTH] = { 0 };
 					hci_read_local_name(BlueToothDevice_Handle, sizeof(LocalName), LocalName, bt_TimeOut);
 
@@ -3492,6 +3454,15 @@ int main(int argc, char **argv)
 																				break;
 																			case ThermometerType::H5100:
 																				ConsoleOutLine << " (GVH5100)";
+																				break;
+																			case ThermometerType::H5101:
+																				ConsoleOutLine << " (GVH5101)";
+																				break;
+																			case ThermometerType::H5104:
+																				ConsoleOutLine << " (GVH5104)";
+																				break;
+																			case ThermometerType::H5105:
+																				ConsoleOutLine << " (GVH5105)";
 																				break;
 																			case ThermometerType::H5174:
 																				ConsoleOutLine << " (GVH5174)";
