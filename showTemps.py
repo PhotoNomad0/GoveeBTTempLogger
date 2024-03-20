@@ -540,6 +540,7 @@ while True:
                     sampleTime = time_.astimezone()
                 except Exception as e:
                     print(f"An error occurred: {e} parsing {file}, line='{data0}' data='{data}'")
+                    continue
 
                 sensors[sensorId]['date'] = sampleTime
                 sensors[sensorId]['temp'] = tempStr
