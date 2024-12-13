@@ -278,13 +278,13 @@ def convert_celsius_to_fahrenheit(celsius):
     return fahrenheit
 
 
-def findMatch(params: str[int], paramKey: str, matchPrefix: bool=False):
+def findMatch(params, paramKey, matchPrefix=False):
     """
     Search params list for paramKey, by default searches for paramKey such as `--backup` and returns True if found
         but when prefix is True it looks for paramKey such as `--backup=` and returns string following it
-    :param params: parameter list to search
-    :param paramKey: parameter to find in params
-    :param matchPrefix: if False then looks for exact match of paramKey, if True looks for parameter that contains prefix of paramKey
+    :param params: str[int] - parameter list to search
+    :param paramKey: str - parameter to find in params
+    :param matchPrefix: bool - if False then looks for exact match of paramKey, if True looks for parameter that contains prefix of paramKey
     :return: returns True if paramKey is False, or
     """
     tarLen = len(paramKey)
@@ -319,7 +319,7 @@ quietTempDeltaThreshold = 0.2
 activeTempDeltaThreshold = 0.5
 
 
-def setBackupInterval(backupIntervalSecs: float):
+def setBackupInterval(backupIntervalSecs):
     global backup, backupCount, idx, sleepTime, backupInterval
     idx += 1  # increment pointer to folder path
     backup = True
