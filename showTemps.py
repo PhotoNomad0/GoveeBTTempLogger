@@ -324,7 +324,7 @@ def setBackupInterval(backupIntervalSecs):
     idx += 1  # increment pointer to folder path
     backup = True
     backupInterval = int(backupIntervalSecs / sleepTime)
-    logInfo(f"backup mode is on, every {backupInterval} counts of {sleepTime}")
+    logInfo(f"backup mode is on, every {backupInterval} counts of {sleepTime} (i.e. every {backupIntervalSecs} seconds)")
     backupCount = -1
 
 if len(sys.argv) > 1:
