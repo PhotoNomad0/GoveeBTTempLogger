@@ -7,7 +7,11 @@
 #  --system <= sets system mode (requires sudo) avery 2 hours will check if readings are hung - if so will restart GoveeBTTempLogger service
 #                 *** not sure if this fixes anything
 #
-#  --backup <= every couple hours will backup GoveeBTTempLogger data.
+#  --backup <= every 2 hours will backup GoveeBTTempLogger data.
+#
+#  --backup=n <= every n seconds will backup GoveeBTTempLogger data.
+#
+#  --interval=n <= sets the display refresh interval to n seconds
 #
 #  optional path to GoveeBTTempLogger log files
 #
@@ -274,13 +278,21 @@ def convert_celsius_to_fahrenheit(celsius):
     return fahrenheit
 
 
-def findMatch(array, target, prefix=False):
-    tarLen = len(target)
-    for string in array:
-        if string == target:
+def findMatch(params: str[int], paramKey: str, matchPrefix: bool=False):
+    """
+    Search params list for paramKey, by default searches for paramKey such as `--backup` and returns True if found
+        but when prefix is True it looks for paramKey such as `--backup=` and returns string following it
+    :param params: parameter list to search
+    :param paramKey: parameter to find in params
+    :param matchPrefix: if False then looks for exact match of paramKey, if True looks for parameter that contains prefix of paramKey
+    :return: returns True if paramKey is False, or
+    """
+    tarLen = len(paramKey)
+    for string in params:
+        if string == paramKey:
             return True
-        if prefix:
-            if string[0:tarLen] == target:
+        if matchPrefix:
+            if string[0:tarLen] == paramKey:
                 return string[tarLen:]
     return False
 
@@ -305,6 +317,15 @@ sleepTime = 60 # interval between display updates in seconds
 averageAmount = 60 # number of intervals to average
 quietTempDeltaThreshold = 0.2
 activeTempDeltaThreshold = 0.5
+
+
+def setBackupInterval(backupIntervalSecs: float):
+    global backup, backupCount, idx, sleepTime, backupInterval
+    idx += 1  # increment pointer to folder path
+    backup = True
+    backupInterval = int(backupIntervalSecs / sleepTime)
+    logInfo(f"backup mode is on, every {backupInterval} counts of {sleepTime}")
+    backupCount = -1
 
 if len(sys.argv) > 1:
     if findMatch(sys.argv, '--system'):
@@ -331,11 +352,13 @@ if len(sys.argv) > 1:
             backupInterval = backupInterval_
 
     if findMatch(sys.argv, '--backup'):
-        idx += 1 # increment pointer to folder path
-        backup = True
-        backupInterval = int(defaultBackupTime/sleepTime)
-        logInfo(f"backup mode is on, every {backupInterval} counts of {sleepTime}")
-        backupCount = -1
+        setBackupInterval(defaultBackupTime)
+
+    backupIntervalSecs = findMatch(sys.argv, '--backup=', True)
+    
+    if backupIntervalSecs:
+        backupIntervalSecs = int(backupIntervalSecs)
+        setBackupInterval(backupIntervalSecs)
 
 if len(sys.argv) > idx + 1:
     folder_path = sys.argv[idx]
