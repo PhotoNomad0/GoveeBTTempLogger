@@ -20,8 +20,10 @@ if (POLICY CMP0115)
   cmake_policy(SET CMP0115 NEW)
 endif()
 
+add_compile_definitions(_BLUEZ_HCI_)
+
 project (GoveeBTTempLogger
-    VERSION 3.20240822.0
+    VERSION 3.20250218.3
     DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments via BlueZ and DBus"
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )
@@ -55,7 +57,7 @@ if (CMAKE_VERSION VERSION_GREATER 3.12)
 endif()
 
 target_include_directories(goveebttemplogger PUBLIC
-    "${PROJECT_BINARY_DIR}" 
+    "${PROJECT_BINARY_DIR}"
     ${EXTRA_INCLUDES}
     ${dbus_INCLUDE_DIRS}
     )
@@ -108,7 +110,6 @@ set(CPACK_DEBIAN_PACKAGE_MAINTAINER "William C Bonner <${CPACK_PACKAGE_CONTACT}>
 include(InstallRequiredSystemLibraries)
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
-# set(CPACK_DEBIAN_PACKAGE_RELEASE ${CMAKE_PROJECT_VERSION_PATCH})
 set(CPACK_DEBIAN_PACKAGE_SECTION custom)
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/postinst" "${CMAKE_CURRENT_SOURCE_DIR}/prerm" "${CMAKE_CURRENT_SOURCE_DIR}/postrm")
 set(CPACK_STRIP_FILES YES)

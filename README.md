@@ -1,8 +1,6 @@
 # GoveeBTTempLogger
 Govee H5074, H5075, H5100, H5101, H5104, H5105, H5174, H5177, and H5179 Bluetooth Low Energy Temperature and Humidity Logger, and Govee H5181, H5182 and H5183 Smart Meat Thermometers
 
-Uses libbluetooth functionality from BlueZ on linux to open the default Bluetooth device and listen for low energy advertisments from Govee thermometers.
-
 Each of these devices currently cost less than $15 on Amazon and use BLE for communication, so don't require setting up a manufacterer account to track the data.  
 
 GoveeBTTempLogger was initially built using Microsoft Visual Studio 2017, targeting ARM processor running on Linux. I'm using a Raspberry Pi 4 as my linux host. I've verified the same code works on a Raspbery Pi ZeroW, Raspberry Pi Zero2W, Raspberry Pi 3b, and a Raspberry Pi 5.
@@ -17,146 +15,36 @@ sudo /usr/local/bin/goveebttemplogger --log /var/log/goveebttemplogger/ --index 
 ```
 
 ## Major update to version 3.
-Conversion to Bluetooth using BlueZ over DBus! This is a work in progress. 
-DBus is the approved method of Bluetooth communication, complicated to implement without a huge framework. 
-I've got this branch running on my personal production machine. 
-It's using significantly more CPU than the pure HCI code. 
+Conversion to Bluetooth using BlueZ over DBus!
+DBus is the approved method of Bluetooth communication. 
+It seems to use more CPU than the pure HCI code.
 When I tried building this on a machine running Raspbian GNU/Linux 10 (buster) the system builds but the BlueZ DBus routines to find the bluetooth adapter fail. 
 For this reason, I've left the old HCI commands in the code and fallback to running HCI if DBus fails. 
 
 I've added an --HCI option to allow the user to force it to run the HCI commands instead of using the DBus interface.
 
-When running DBus, there is no way to run in passive mode. The --passive option is ignored.
+When running DBus, there is no way to run in passive scanning mode. The --passive option is ignored.
 
 When running HCI mode, the whitelist created with the --only option is sent to the bluetooth hardware and only those devices are sent from the hardware to the software.
 In DBus mode whitelisting does not appear to be available.
 In DBus mode I'm filtering the output based on the whitelist.
 
-### Example v3 output
-```
-wim@WimPi5:~ $ ./GoveeBTTempLogger/build/goveebttemplogger -v 9
-[2024-08-14T15:28:02] GoveeBTTempLogger Version 3.20240813.2 Built on: Aug 13 2024 at 15:08:18
-[                   ]      log: ""
-[                   ]    cache: ""
-[                   ]      svg: ""
-[                   ]  battery: 0
-[                   ]   minmax: 0
-[                   ]  celsius: false
-[                   ] titlemap: ""
-[                   ]     time: 60
-[                   ]  average: 5
-[                   ] download: 0 (days betwen data download)
-[                   ]  passive: false
-[                   ] no-bluetooth: false
-[                   ]      HCI: false
-[2024-08-14T15:28:02] Connected to D-Bus as ":1.227"
-[                   ]   Message Type: method_return
-[                   ]      Signature: a{oa{sa{sv}}}
-[                   ]    Destination: :1.227
-[                   ]         Sender: :1.5
-[                   ]        Object Path: /org/bluez
-[                   ]             String: org.freedesktop.DBus.Introspectable
-[                   ]             String: org.bluez.AgentManager1
-[                   ]             String: org.bluez.ProfileManager1
-[                   ]             String: org.bluez.HealthManager1
-[                   ]        Object Path: /org/bluez/hci0
-[                   ]             String: org.freedesktop.DBus.Introspectable
-[                   ]             String: org.bluez.Adapter1
-[                   ]                Address: 2C:CF:67:0B:78:71
-[                   ]             String: org.freedesktop.DBus.Properties
-[                   ]             String: org.bluez.GattManager1
-[                   ]             String: org.bluez.Media1
-[                   ]             String: org.bluez.NetworkServer1
-[                   ]             String: org.bluez.LEAdvertisingManager1
-[                   ] Host Controller Address: 2C:CF:67:0B:78:71 BlueZ Adapter Path: /org/bluez/hci0
-[                   ] /org/bluez/hci0: org.freedesktop.DBus.Properties: SetPowered: true
-[                   ] /org/bluez/hci0: org.bluez.Adapter1: SetDiscoveryFilter
-[                   ] /org/bluez/hci0: org.bluez.Adapter1: StartDiscovery
-[2024-08-14T15:28:02] [E3:60:59:21:80:65] Name: Govee_H5074_8065
-[2024-08-14T15:28:02] [E3:60:59:21:80:65] ManufacturerData: ec88:00b8fc770c5d02
-[2024-08-14T15:28:02] [E3:60:59:21:80:65] (Temp) -8.4°C (Humidity) 31.91% (Battery) 93% (GVH5074)
-[2024-08-14T15:28:02] [6C:2A:DF:E0:14:1A] Name: HB-00147479
-[2024-08-14T15:28:02] [75:2E:2E:EB:6B:D5] Name: Cerbo GX HQ2312AG767
-[2024-08-14T15:28:02] [75:2E:2E:EB:6B:D5] ManufacturerData: 02e1:10000ac0
-[2024-08-14T15:28:02] [22:A4:EC:E8:EC:F4] ManufacturerData: 0006:01092022868159d832b59c782dfe1ba2aa578ec6205eff3eb6f720
-[2024-08-14T15:28:02] [E3:8E:C8:C1:98:9A] Name: Govee_H5074_989A
-[2024-08-14T15:28:02] [E3:8E:C8:C1:98:9A] ManufacturerData: ec88:005807ea1b6202
-[2024-08-14T15:28:02] [E3:8E:C8:C1:98:9A] (Temp) 18.8°C (Humidity) 71.46% (Battery) 98% (GVH5074)
-[2024-08-14T15:28:02] [22:A4:EC:E8:EC:F4] ManufacturerData: 0006:01092022868159d832b59c782dfe1ba2aa578ec6205eff3eb6f720
-[2024-08-14T15:28:02] [75:2E:2E:EB:6B:D5] ManufacturerData: 02e1:10000ac0
-[2024-08-14T15:28:03] [4B:5D:22:2A:F7:9D] ManufacturerData: 004c:160800d7f91e519802d7
-[2024-08-14T15:28:03] [A4:C1:38:D5:A3:3B] Name: Govee_H5074_A33B
-[2024-08-14T15:28:03] [A4:C1:38:D5:A3:3B] ManufacturerData: 004c:0215494e54454c4c495f524f434b535f48575075f2ffc2
-[2024-08-14T15:28:03] [A4:C1:38:DC:CC:3D] Name: GVH5174_CC3D
-[2024-08-14T15:28:03] [A4:C1:38:DC:CC:3D] ManufacturerData: 0001:010102dd3f44 004c:0215494e54454c4c495f524f434b535f48575075f2ffc2
-[2024-08-14T15:28:03] [A4:C1:38:DC:CC:3D] (Temp) 18.7711°C (Humidity) 71.1% (Battery) 68% (GVH5174)
-[2024-08-14T15:28:03] [75:2E:2E:EB:6B:D5] ManufacturerData: 02e1:10000ac0
-[2024-08-14T15:28:03] [D0:35:33:33:44:03] Name: GVH5105_4403
-[2024-08-14T15:28:03] [D0:35:33:33:44:03] ManufacturerData: 0001:010102e11362 004c:0215494e54454c4c495f524f434b535f48575075f2ff0c
-[2024-08-14T15:28:03] [D0:35:33:33:44:03] (Temp) 18.8691°C (Humidity) 69.1% (Battery) 98% (GVH5105)
-[2024-08-14T15:28:03] [22:A4:EC:E8:EC:F4] ManufacturerData: 0006:01092022868159d832b59c782dfe1ba2aa578ec6205eff3eb6f720
-[2024-08-14T15:28:03] [A4:C1:38:05:C7:A1] Name: Govee_H5074_C7A1
-[2024-08-14T15:28:03] [A4:C1:38:05:C7:A1] ManufacturerData: 004c:0215494e54454c4c495f524f434b535f48575075f2ffc2
-[2024-08-14T15:28:03] [E3:60:59:21:80:65] ManufacturerData: 004c:0215494e54454c4c495f524f434b535f485750746580c2
-[2024-08-14T15:28:03] [22:A4:EC:E8:EC:F4] ManufacturerData: 0006:01092022868159d832b59c782dfe1ba2aa578ec6205eff3eb6f720
-[2024-08-14T15:28:03] [75:2E:2E:EB:6B:D5] ManufacturerData: 02e1:10000ac0
-[2024-08-14T15:28:03] [22:A4:EC:E8:EC:F4] ManufacturerData: 0006:01092022868159d832b59c782dfe1ba2aa578ec6205eff3eb6f720
-[2024-08-14T15:28:03] [75:2E:2E:EB:6B:D5] ManufacturerData: 02e1:10000ac0
-^C***************** SIGINT: Caught Ctrl-C, finishing loop and quitting. *****************
-[                   ] /org/bluez/hci0: org.bluez.Adapter1: StopDiscovery
-[                   ] /org/bluez/hci0: org.bluez.Adapter1: SetDiscoveryFilter
-[                   ] Error: org.bluez.Adapter1: SetDiscoveryFilter: Connection was disconnected before a reply was received /home/wim/GoveeBTTempLogger/goveebttemplogger.cpp(3256)
-GoveeBTTempLogger Version 3.20240813.2 Built on: Aug 13 2024 at 15:08:18 (exiting)
-wim@WimPi5:~ $ ./GoveeBTTempLogger/build/goveebttemplogger
-[2024-08-14T15:42:02] GoveeBTTempLogger Version 3.20240813.2 Built on: Aug 13 2024 at 15:08:18
-[2024-08-14T15:42:02] Connected to D-Bus as ":1.230"
-[                   ] Host Controller Address: 2C:CF:67:0B:78:71 BlueZ Adapter Path: /org/bluez/hci0
-[                   ] /org/bluez/hci0: org.freedesktop.DBus.Properties: SetPowered: true
-[                   ] /org/bluez/hci0: org.bluez.Adapter1: SetDiscoveryFilter
-[                   ] /org/bluez/hci0: org.bluez.Adapter1: StartDiscovery
-[2024-08-14T15:42:02] [C2:35:33:30:25:50] (Temp) 18.9697°C (Humidity) 69.7% (Battery) 42% (GVH5100)
-[2024-08-14T15:42:02] [E3:60:59:21:80:65] (Temp) -8.44°C (Humidity) 31.54% (Battery) 93% (GVH5074)
-[2024-08-14T15:42:02] [E3:8E:C8:C1:98:9A] (Temp) 19°C (Humidity) 70.73% (Battery) 98% (GVH5074)
-[2024-08-14T15:42:02] [A4:C1:38:D5:A3:3B] (Temp) 19.32°C (Humidity) 68.58% (Battery) 51% (GVH5074)
-[2024-08-14T15:42:02] [A4:C1:38:05:C7:A1] (Temp) 18.4°C (Humidity) 72.7% (Battery) 66% (GVH5074)
-[2024-08-14T15:42:03] [D0:35:33:33:44:03] (Temp) 19.2682°C (Humidity) 68.2% (Battery) 98% (GVH5105)
-[2024-08-14T15:42:04] [C3:36:35:30:61:77] (Temp) 18.6718°C (Humidity) 71.8% (Battery) 43% (GVH5104)
-[2024-08-14T15:42:04] [A4:C1:38:37:BC:AE] (Temp) 20.5°C (Humidity) 64.3% (Battery) 97% (GVH5075)
-[2024-08-14T15:42:04] [C2:35:33:30:25:50] (Temp) 18.9697°C (Humidity) 69.7% (Battery) 42% (GVH5100)
-[2024-08-14T15:42:05] [E3:60:59:23:14:7D] (Temp) 8.37°C (Humidity) 73.75% (Battery) 100% (GVH5074)
-[2024-08-14T15:42:05] [D0:35:33:33:44:03] (Temp) 19.2682°C (Humidity) 68.2% (Battery) 98% (GVH5105)
-[2024-08-14T15:42:06] [C3:36:35:30:61:77] (Temp) 18.6718°C (Humidity) 71.8% (Battery) 43% (GVH5104)
-[2024-08-14T15:42:06] [A4:C1:38:37:BC:AE] (Temp) 20.6°C (Humidity) 64.3% (Battery) 97% (GVH5075)
-[2024-08-14T15:42:06] [C2:35:33:30:25:50] (Temp) 19.0697°C (Humidity) 69.7% (Battery) 42% (GVH5100)
-[2024-08-14T15:42:06] [E3:8E:C8:C1:98:9A] (Temp) 19.01°C (Humidity) 70.72% (Battery) 98% (GVH5074)
-[2024-08-14T15:42:07] [A4:C1:38:0D:3B:10] (Temp) 19.1681°C (Humidity) 68.1% (Battery) 84% (GVH5177)
-[2024-08-14T15:42:07] [D0:35:33:33:44:03] (Temp) 19.2682°C (Humidity) 68.2% (Battery) 98% (GVH5105)
-[2024-08-14T15:42:07] [E3:5E:CC:21:5C:0F] (Temp) 17.71°C (Humidity) 99.99% (Battery) 100% (GVH5074)
-[2024-08-14T15:42:08] [C3:36:35:30:61:77] (Temp) 18.6717°C (Humidity) 71.7% (Battery) 43% (GVH5104)
-[2024-08-14T15:42:08] [A4:C1:38:37:BC:AE] (Temp) 20.5°C (Humidity) 64.2% (Battery) 97% (GVH5075)
-[2024-08-14T15:42:09] [A4:C1:38:0D:3B:10] (Temp) 19.1681°C (Humidity) 68.1% (Battery) 84% (GVH5177)
-[2024-08-14T15:42:10] [C3:36:35:30:61:77] (Temp) 18.6717°C (Humidity) 71.7% (Battery) 43% (GVH5104)
-[2024-08-14T15:42:10] [A4:C1:38:37:BC:AE] (Temp) 20.5°C (Humidity) 64.2% (Battery) 97% (GVH5075)
-[2024-08-14T15:42:10] [C2:35:33:30:25:50] (Temp) 18.9697°C (Humidity) 69.7% (Battery) 42% (GVH5100)
-[2024-08-14T15:42:10] [E3:60:59:21:80:65] (Temp) -8.41°C (Humidity) 31.56% (Battery) 93% (GVH5074)
-[2024-08-14T15:42:10] [E3:8E:C8:C1:98:9A] (Temp) 19.03°C (Humidity) 70.72% (Battery) 98% (GVH5074)
-[2024-08-14T15:42:10] [A4:C1:38:D5:A3:3B] (Temp) 19.32°C (Humidity) 68.54% (Battery) 51% (GVH5074)
-[2024-08-14T15:42:10] [A4:C1:38:05:C7:A1] (Temp) 18.43°C (Humidity) 72.71% (Battery) 66% (GVH5074)
-[2024-08-14T15:42:11] [A4:C1:38:0D:3B:10] (Temp) 19.1681°C (Humidity) 68.1% (Battery) 84% (GVH5177)
-[2024-08-14T15:42:11] [D0:35:33:33:44:03] (Temp) 19.1682°C (Humidity) 68.2% (Battery) 98% (GVH5105)
-[2024-08-14T15:42:12] [C3:36:35:30:61:77] (Temp) 18.6718°C (Humidity) 71.8% (Battery) 43% (GVH5104)
-[2024-08-14T15:42:12] [A4:C1:38:37:BC:AE] (Temp) 20.6°C (Humidity) 64.3% (Battery) 97% (GVH5075)
-[2024-08-14T15:42:12] [A4:C1:38:D5:A3:3B] (Temp) 19.32°C (Humidity) 68.54% (Battery) 51% (GVH5074)
-[2024-08-14T15:42:12] [A4:C1:38:05:C7:A1] (Temp) 18.43°C (Humidity) 72.71% (Battery) 66% (GVH5074)
-[2024-08-14T15:42:13] [D0:35:33:33:44:03] (Temp) 19.1682°C (Humidity) 68.2% (Battery) 98% (GVH5105)
-[2024-08-14T15:42:13] [A4:C1:38:DC:CC:3D] (Temp) 18.9708°C (Humidity) 70.8% (Battery) 68% (GVH5174)
-^C***************** SIGINT: Caught Ctrl-C, finishing loop and quitting. *****************
-[2024-08-14T15:42:14] [E3:5E:CC:21:5C:0F] (Temp) 17.7°C (Humidity) 99.99% (Battery) 100% (GVH5074)
-[                   ] /org/bluez/hci0: org.bluez.Adapter1: StopDiscovery
-[                   ] /org/bluez/hci0: org.bluez.Adapter1: SetDiscoveryFilter
-[                   ] Error: org.bluez.Adapter1: SetDiscoveryFilter: Connection was disconnected before a reply was received /home/wim/GoveeBTTempLogger/goveebttemplogger.cpp(3256)
-GoveeBTTempLogger Version 3.20240813.2 Built on: Aug 13 2024 at 15:08:18 (exiting)
-```
+### 2024-10-10 HCI Code in #ifdef sections
+The code has been rearranged slightly for clarity, moving all of the HCI access code into #ifdef blocks. 
+The CMakeLists.txt file defines \_BLUEZ_HCI\_ to keep the code in the application. 
+Removing or commenting out the line add_compile_definitions(_BLUEZ_HCI_) will compile without the Bluetooth HCI libraries.
+I should also be able to ignore the files att-types.h, uuid.c, and uuid.h. I'm proficient at CMake to do this yet.
+
+HCI code uses libbluetooth functionality from BlueZ on linux to open the default Bluetooth device and listen for low energy advertisments from Govee thermometers.
+
+### 2024-10-01 Run As goveebttemplogger
+Updated the postinst debian install script to add a user goveebttemplogger and make changes to the permissions on the default directories appropriately.
+Changed the service file to specify running the program as user goveebttemplogger. This is possible because accessing BlueZ via DBus does not require root access.
+
+### 2025-02-18 Added --download to default service command
+The download functionality is now working with the DBus code base as well as being more robust using the HCI code. As such I've added it to the default running configuration. 
+It does not attempt to download data more than every two weeks, to reduce battery usage of the bluetooth device.
+It retrieves the oldest data first, and if the transfer is stopped midway, will attempt to start from the new "oldest" data downloaded.
 
 ## Major update to version 2.
 Added the SVG output function, directly creating SVG graphs from internal data in a specified directory. The causes the program to take longer to start up as it will attempt to read all of the old logged data into an internal memory structure as it starts. Once the program has entered the normal running state it writes four SVG files per device to the specified directory every five minutes.
@@ -205,10 +93,19 @@ cmake --build GoveeBTTempLogger/build
 pushd GoveeBTTempLogger/build && cpack . && popd
 ```
 
-The install package will install a systemd unit `goveebttemplogger.service` which will automatically start GoveeBTTempLogger. The service can be configured using environment variables via
+The install package will creates a systemd unit `goveebttemplogger.service` which will automatically start GoveeBTTempLogger. The service can be configured via
 the `systemctl edit goveebttemplogger.service` command. By default, it writes logs to `/var/log/goveebttemplogger` and writes SVG files to `/var/www/html/goveebttemplogger`.
 
-There are several `ExecStartPre` lines to confirm the directories used exist. To use different directories, both this location and the parameter on the ExecStart line need to be changed.
+
+The [postinst](https://github.com/wcbonner/GoveeBTTempLogger/blob/master/postinst) install routine creates a user and three directories.
+It also will change the permissions on those dirctories to be owned by and writable by the newly created user.
+```
+adduser --system --ingroup www-data goveebttemplogger
+mkdir --verbose --mode 0755 --parents /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
+chown --changes --recursive goveebttemplogger:www-data /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
+chmod --changes --recursive 0644 /var/log/goveebttemplogger/* /var/cache/goveebttemplogger/* /var/www/html/goveebttemplogger/*
+sudo setcap 'cap_net_raw,cap_net_admin+eip' /usr/local/bin/goveebttemplogger
+```
 
 The systemd unit file section `ExecStart` to start the service has been broken into several lines for clarity.
 
@@ -216,17 +113,16 @@ The systemd unit file section `ExecStart` to start the service has been broken i
 [Service]
 Type=simple
 Restart=always
-RestartSec=5
-ExecStartPre=/bin/mkdir -p /var/log/goveebttemplogger
-ExecStartPre=/bin/mkdir -p /var/www/html/goveebttemplogger
-ExecStartPre=/bin/mkdir -p /var/cache/goveebttemplogger
+RestartSec=30
+User=goveebttemplogger
+Group=www-data
 ExecStart=/usr/local/bin/goveebttemplogger \
     --verbose 0 \
     --log /var/log/goveebttemplogger \
     --time 60 \
+    --download \
     --svg /var/www/html/goveebttemplogger --battery 8 --minmax 8 \
-    --cache /var/cache/goveebttemplogger \
-    --download
+    --cache /var/cache/goveebttemplogger
 KillSignal=SIGINT
 ```
 
@@ -275,9 +171,10 @@ sudo apt install bluetooth bluez libbluetooth-dev -y
  * -b (--battery) Draw the battery status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly
  * -x (--minmax) Draw the minimum and maximum temperature and humidity status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly
  * -d (--download) Periodically attempt to connect and download stored data
- * -p (--passive) Bluetooth LE Passive Scanning
  * -n (--no-bluetooth) Monitor Logging Directory and process logs without Bluetooth Scanning
+ * -M (--monitor) Monitor Logged Data for updated data
  * -H (--HCI) Prefer deprecated BlueZ HCI interface instead of DBus
+ * -p (--passive) Bluetooth LE Passive Scanning
 
  ## Log File Format
 
@@ -336,18 +233,25 @@ Connections on bluetooth devices are all based on handles and UUIDs. There are s
 [                   ] Characteristic Handles: 0x0009..0x000a Properties: 0x20 UUID: 2a05 (Service Changed)
 [-------------------] Service Handles: 0x000c..0x000e UUID: 180a (Device Information)
 [                   ] Characteristic Handles: 0x000d..0x000e Properties: 0x02 UUID: 2a50 (PnP ID)
-[-------------------] Service Handles: 0x000f..0x001b UUID: 57485f53-4b43-4f52-5f49-4c4c45544e49
-[                   ] Characteristic Handles: 0x0010..0x0011 Properties: 0x1a UUID: 11205f53-4b43-4f52-5f49-4c4c45544e49
-[                   ] Characteristic Handles: 0x0014..0x0015 Properties: 0x1a UUID: 12205f53-4b43-4f52-5f49-4c4c45544e49
-[                   ] Characteristic Handles: 0x0018..0x0019 Properties: 0x12 UUID: 13205f53-4b43-4f52-5f49-4c4c45544e49
-[-------------------] Service Handles: 0x001c..0x001f UUID: 12190d0c-0b0a-0908-0706-050403020100
-[                   ] Characteristic Handles: 0x001d..0x001e Properties: 0x06 UUID: 122b0d0c-0b0a-0908-0706-050403020100
+[-------------------] Service Handles: 0x000f..0x001b UUID: 494e5445-4c4c-495f-524f-434b535f4857
+[                   ] Characteristic Handles: 0x0010..0x0011 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2011
+[                   ] Characteristic Handles: 0x0014..0x0015 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2012
+[                   ] Characteristic Handles: 0x0018..0x0019 Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
+[-------------------] Service Handles: 0x001c..0x001f UUID: 00010203-0405-0607-0809-0a0b0c0d1912
+[                   ] Characteristic Handles: 0x001d..0x001e Properties: 0x06 UUID: 00010203-0405-0607-0809-0a0b0c0d2b12
 ```
-**57485f53-4b43-4f52-5f49-4c4c45544e49** is the custom 128 bit UUID that all of the Govee thermometers seem to use for their primary service. If printed as an ascii string, it looks like this text backwards **INTELLI_ROCKS_HW**.  (**WH_SKCOR_ILLETNI**)
+##### 2025-02-18 128 bit UUID output
+My old code didn't properly display the UUID when it was a 128 bit UUID, I standardized on the proper output and have corrected this readme with updated respresentation. Thanks to [govee-h5075-thermo-hygrometer](https://github.com/Heckie75/govee-h5075-thermo-hygrometer/blob/main/API.md) I understand the three primary UUIDs much better.
 
-**12205f53-4b43-4f52-5f49-4c4c45544e49** is the 128 bit UUID of the service characteristic that I write to enable download of data. It looks like the primary UUID except that the first two bytes are different. **INTELLI_ROCKS_**.  (**_SKCOR_ILLETNI**)
+**494e5445-4c4c-495f-524f-434b535f4857** is the custom 128 bit UUID that all of the Govee thermometers seem to use for their primary service. If printed as an ascii string, it looks like this text **INTELLI_ROCKS_HW**.
 
-Most of the devices hold 20 days of history. The GVH5177 and GVH5174 devices hald a month of data.
+**494e5445-4c4c-495f-524f-434b535f2011** is the 128 bit UUID used for command and responses. There commands are well documented at the previous link.
+
+**494e5445-4c4c-495f-524f-434b535f2012** is the 128 bit UUID of the service characteristic that I write to request download of data. It looks like the primary UUID except that the first two bytes are different. **INTELLI_ROCKS_**.
+
+**494e5445-4c4c-495f-524f-434b535f2013** is the 128 bit UUID that will return requested historical data.
+
+Most of the devices hold 20 days of history. The GVH5177 and GVH5174 devices hold a month of data.
 
 ```
 Download from device: [A4:C1:38:DC:CC:3D] 2023-02-03 13:52:00 2023-02-23 13:52:00 (28800)
@@ -363,7 +267,7 @@ Download from device: [D0:35:33:33:44:03] 2024-01-14 20:00:00 2024-02-03 20:00:0
 ```
 
 ```
-[2024-02-04T04:01:41] 46 [C2:35:33:30:25:50] (Flags) 06 (Name) GVH5100_2550 (UUID) 88EC (Manu) 010001010276EF55 (Temp) 16.1519°C (Humidity) 51.9% (Battery) 85% (GVH5100)
+[2025-02-18T09:17:35] 46 [C2:35:33:30:25:50] (Flags) 06 (Name) GVH5100_2550 (UUID) ec88 (Manu) 0001:010102B1903D (Temp) 17.7°C (Humidity)  52.8% (Battery)  61% (GVH5100)
 [-------------------] Service Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
 [                   ] Characteristic Handles: 0x0002..0x0003 Properties: 0x0a UUID: 2a00 (Device Name)
 [                   ] Characteristic Handles: 0x0004..0x0005 Properties: 0x0a UUID: 2a01 (Appearance)
@@ -371,16 +275,16 @@ Download from device: [D0:35:33:33:44:03] 2024-01-14 20:00:00 2024-02-03 20:00:0
 [                   ] Characteristic Handles: 0x0008..0x0009 Properties: 0x02 UUID: 2ac9
 [-------------------] Service Handles: 0x000a..0x000d UUID: 1801 (Generic Attribute)
 [                   ] Characteristic Handles: 0x000b..0x000c Properties: 0x22 UUID: 2a05 (Service Changed)
-[-------------------] Service Handles: 0x000e..0x001a UUID: 57485f53-4b43-4f52-5f49-4c4c45544e49
-[                   ] Characteristic Handles: 0x000f..0x0010 Properties: 0x1a UUID: 11205f53-4b43-4f52-5f49-4c4c45544e49
-[                   ] Characteristic Handles: 0x0013..0x0014 Properties: 0x1a UUID: 12205f53-4b43-4f52-5f49-4c4c45544e49
-[                   ] Characteristic Handles: 0x0017..0x0018 Properties: 0x12 UUID: 13205f53-4b43-4f52-5f49-4c4c45544e49
-[-------------------] Service Handles: 0x001b..0x0025 UUID: 00fe0000-0000-0000-0000-00000000f002
-[                   ] Characteristic Handles: 0x001c..0x001d Properties: 0x02 UUID: 03ff0000-0000-0000-0000-00000000f002
-[                   ] Characteristic Handles: 0x001e..0x001f Properties: 0x12 UUID: 02ff0000-0000-0000-0000-00000000f002
-[                   ] Characteristic Handles: 0x0022..0x0023 Properties: 0x02 UUID: 00ff0000-0000-0000-0000-00000000f002
-[                   ] Characteristic Handles: 0x0024..0x0025 Properties: 0x0c UUID: 01ff0000-0000-0000-0000-00000000f002
-[2024-02-04T04:03:05] [C2:35:33:30:25:50] Download from device. 2024-01-15 22:19:00 2024-02-03 20:01:00 (27222)
+[-------------------] Service Handles: 0x000e..0x001a UUID: 494e5445-4c4c-495f-524f-434b535f4857
+[                   ] Characteristic Handles: 0x000f..0x0010 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2011
+[                   ] Characteristic Handles: 0x0013..0x0014 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2012
+[                   ] Characteristic Handles: 0x0017..0x0018 Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
+[-------------------] Service Handles: 0x001b..0x0025 UUID: 02f00000-0000-0000-0000-00000000fe00
+[                   ] Characteristic Handles: 0x001c..0x001d Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff03
+[                   ] Characteristic Handles: 0x001e..0x001f Properties: 0x12 UUID: 02f00000-0000-0000-0000-00000000ff02
+[                   ] Characteristic Handles: 0x0022..0x0023 Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff00
+[                   ] Characteristic Handles: 0x0024..0x0025 Properties: 0x0c UUID: 02f00000-0000-0000-0000-00000000ff01
+[2025-02-18T09:18:45] [C2:35:33:30:25:50] Download from device: [C2:35:33:30:25:50] 2025-01-29 09:17:00 2025-02-18 09:17:00 (28800) (GVH5100)
 
 [2024-02-04T04:00:25] 46 [D0:35:33:33:44:03] (Flags) 06 (Name) GVH5105_4403 (UUID) 88EC (Manu) 0100010102868262 (Temp) 16.5506°C (Humidity) 50.6% (Battery) 98% (GVH5105)
 [-------------------] Service Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
@@ -390,16 +294,52 @@ Download from device: [D0:35:33:33:44:03] 2024-01-14 20:00:00 2024-02-03 20:00:0
 [                   ] Characteristic Handles: 0x0008..0x0009 Properties: 0x02 UUID: 2ac9
 [-------------------] Service Handles: 0x000a..0x000d UUID: 1801 (Generic Attribute)
 [                   ] Characteristic Handles: 0x000b..0x000c Properties: 0x22 UUID: 2a05 (Service Changed)
-[-------------------] Service Handles: 0x000e..0x001a UUID: 57485f53-4b43-4f52-5f49-4c4c45544e49
-[                   ] Characteristic Handles: 0x000f..0x0010 Properties: 0x1a UUID: 11205f53-4b43-4f52-5f49-4c4c45544e49
-[                   ] Characteristic Handles: 0x0013..0x0014 Properties: 0x1a UUID: 12205f53-4b43-4f52-5f49-4c4c45544e49
-[                   ] Characteristic Handles: 0x0017..0x0018 Properties: 0x12 UUID: 13205f53-4b43-4f52-5f49-4c4c45544e49
-[-------------------] Service Handles: 0x001b..0x0025 UUID: 00fe0000-0000-0000-0000-00000000f002
-[                   ] Characteristic Handles: 0x001c..0x001d Properties: 0x02 UUID: 03ff0000-0000-0000-0000-00000000f002
-[                   ] Characteristic Handles: 0x001e..0x001f Properties: 0x12 UUID: 02ff0000-0000-0000-0000-00000000f002
-[                   ] Characteristic Handles: 0x0022..0x0023 Properties: 0x02 UUID: 00ff0000-0000-0000-0000-00000000f002
-[                   ] Characteristic Handles: 0x0024..0x0025 Properties: 0x0c UUID: 01ff0000-0000-0000-0000-00000000f002
+[-------------------] Service Handles: 0x000e..0x001a UUID: 494e5445-4c4c-495f-524f-434b535f4857
+[                   ] Characteristic Handles: 0x000f..0x0010 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2011
+[                   ] Characteristic Handles: 0x0013..0x0014 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2012
+[                   ] Characteristic Handles: 0x0017..0x0018 Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
+[-------------------] Service Handles: 0x001b..0x0025 UUID: 02f00000-0000-0000-0000-00000000fe00
+[                   ] Characteristic Handles: 0x001c..0x001d Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff03
+[                   ] Characteristic Handles: 0x001e..0x001f Properties: 0x12 UUID: 02f00000-0000-0000-0000-00000000ff02
+[                   ] Characteristic Handles: 0x0022..0x0023 Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff00
+[                   ] Characteristic Handles: 0x0024..0x0025 Properties: 0x0c UUID: 02f00000-0000-0000-0000-00000000ff01
 [2024-02-04T04:01:31] [D0:35:33:33:44:03] Download from device. 2024-01-14 20:00:00 2024-02-03 20:00:00 (28800)
+
+[2025-02-18T09:28:42] 45 [D3:21:C4:06:25:0D] (Flags) 06 (Name) GV5179_250D (UUID) ec88 (Manu) 0001:010102A1F064 (Temp) 17.3°C (Humidity)  52.8% (Battery) 100% (GVH5179)
+[-------------------] Service Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
+[                   ] Characteristic Handles: 0x0002..0x0003 Properties: 0x0a UUID: 2a00 (Device Name)
+[                   ] Characteristic Handles: 0x0004..0x0005 Properties: 0x0a UUID: 2a01 (Appearance)
+[                   ] Characteristic Handles: 0x0006..0x0007 Properties: 0x02 UUID: 2a04 (Peripheral Preferred Connection Parameters)
+[                   ] Characteristic Handles: 0x0008..0x0009 Properties: 0x02 UUID: 2ac9
+[-------------------] Service Handles: 0x000a..0x000d UUID: 1801 (Generic Attribute)
+[                   ] Characteristic Handles: 0x000b..0x000c Properties: 0x22 UUID: 2a05 (Service Changed)
+[-------------------] Service Handles: 0x000e..0x001a UUID: 494e5445-4c4c-495f-524f-434b535f4857
+[                   ] Characteristic Handles: 0x000f..0x0010 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2011
+[                   ] Characteristic Handles: 0x0013..0x0014 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2012
+[                   ] Characteristic Handles: 0x0017..0x0018 Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
+[-------------------] Service Handles: 0x001b..0x0025 UUID: 02f00000-0000-0000-0000-00000000fe00
+[                   ] Characteristic Handles: 0x001c..0x001d Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff03
+[                   ] Characteristic Handles: 0x001e..0x001f Properties: 0x12 UUID: 02f00000-0000-0000-0000-00000000ff02
+[                   ] Characteristic Handles: 0x0022..0x0023 Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff00
+[                   ] Characteristic Handles: 0x0024..0x0025 Properties: 0x0c UUID: 02f00000-0000-0000-0000-00000000ff01
+[2025-02-18T09:28:58] [D3:21:C4:06:25:0D] Download from device: [D3:21:C4:06:25:0D] 2025-02-15 14:47:00 2025-02-18 09:28:00 (4001) (GVH5179)
+
+[2025-02-18T09:52:43] 46 [A4:C1:38:0D:42:7B] (Name) GVH5075_427B (UUID) ec88 (Flags) 05 (Manu) EC88:0002542F5100 (Temp) 15.2°C (Humidity)  62.3% (Battery)  81% (GVH5075)
+[-------------------] Service Handles: 0x0001..0x0007 UUID: 1800 (Generic Access)
+[                   ] Characteristic Handles: 0x0002..0x0003 Properties: 0x12 UUID: 2a00 (Device Name)
+[                   ] Characteristic Handles: 0x0004..0x0005 Properties: 0x02 UUID: 2a01 (Appearance)
+[                   ] Characteristic Handles: 0x0006..0x0007 Properties: 0x02 UUID: 2a04 (Peripheral Preferred Connection Parameters)
+[-------------------] Service Handles: 0x0008..0x000b UUID: 1801 (Generic Attribute)
+[                   ] Characteristic Handles: 0x0009..0x000a Properties: 0x20 UUID: 2a05 (Service Changed)
+[-------------------] Service Handles: 0x000c..0x000e UUID: 180a (Device Information)
+[                   ] Characteristic Handles: 0x000d..0x000e Properties: 0x02 UUID: 2a50 (PnP ID)
+[-------------------] Service Handles: 0x000f..0x001b UUID: 494e5445-4c4c-495f-524f-434b535f4857
+[                   ] Characteristic Handles: 0x0010..0x0011 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2011
+[                   ] Characteristic Handles: 0x0014..0x0015 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2012
+[                   ] Characteristic Handles: 0x0018..0x0019 Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
+[-------------------] Service Handles: 0x001c..0x001f UUID: 00010203-0405-0607-0809-0a0b0c0d1912
+[                   ] Characteristic Handles: 0x001d..0x001e Properties: 0x06 UUID: 00010203-0405-0607-0809-0a0b0c0d2b12
+[2025-02-18T09:53:10] [A4:C1:38:0D:42:7B] Download from device: [A4:C1:38:0D:42:7B] 2025-01-29 09:51:00 2025-02-18 09:52:00 (28801) (GVH5075)
 ```
 
 ## BTData directory contains Data Dumps
