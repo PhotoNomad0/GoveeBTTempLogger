@@ -597,6 +597,9 @@ while True:
 
                 sensors[sensorId]['direction'] = tempMarker
 
+    if ups:
+        showUpsState()
+
     print(blackText + "\n===================================================\n" +
           "Temp\tHumidty\tBattery\tLocation\tTime"
           )
@@ -634,9 +637,6 @@ while True:
 
     if timeout and system:
         restartMeasurementService()
-
-    if ups:
-        showUpsState()
 
     time.sleep(sleepTime)
 
