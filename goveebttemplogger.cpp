@@ -226,6 +226,7 @@ std::filesystem::path SVGIndexFilename;
 int LogFileTime(60);
 int MinutesAverage(5);
 int DaysBetweenDataDownload(0);
+int MaxMinutesBetweenBluetoothAdvertisments(0);
 // The following details were taken from https://github.com/oetiker/mrtg
 const size_t DAY_COUNT(600);			/* 400 samples is 33.33 hours */
 const size_t WEEK_COUNT(600);			/* 400 samples is 8.33 days */
@@ -247,6 +248,7 @@ enum class ThermometerType
 	H5101 = 5101,
 	H5104 = 5104,
 	H5105 = 5105,
+	H5110 = 5110,
 	H5174 = 5174,
 	H5177 = 5177,
 	H5179 = 5179,
@@ -274,6 +276,8 @@ std::string ThermometerType2String(const ThermometerType GoveeModel)
 		return(std::string("(GVH5104)"));
 	case ThermometerType::H5105:
 		return(std::string("(GVH5105)"));
+	case ThermometerType::H5110:
+		return(std::string("(GVH5110)"));
 	case ThermometerType::H5174:
 		return(std::string("(GVH5174)"));
 	case ThermometerType::H5177:
@@ -305,6 +309,8 @@ ThermometerType String2ThermometerType(const std::string Text)
 		rval = ThermometerType::H5104;
 	else if (std::regex_search(Text, std::regex("GVH5105")))
 		rval = ThermometerType::H5105;
+	else if (std::regex_search(Text, std::regex("GVH5110")))
+		rval = ThermometerType::H5110;
 	else if (std::regex_search(Text, std::regex("GVH5174")))
 		rval = ThermometerType::H5174;
 	else if (std::regex_search(Text, std::regex("GVH5177")))
@@ -393,8 +399,8 @@ protected:
 Govee_Temp::Govee_Temp(const std::string & data) // Read data from the Log File
 {
 	std::istringstream TheLine(data);
-	// erase any nulls from the data. these are occasionally in the log file when the platform crashed during a write to the logfile.
-	while (TheLine.peek() == '\000')
+	// erase anything not a digit from the start of the line. nulls are occasionally in the log file when the platform crashed during a write to the logfile.
+	while (!std::isdigit(TheLine.peek()))
 		TheLine.get();
 	std::string theDay;
 	TheLine >> theDay;
@@ -907,7 +913,6 @@ std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
 std::map<bdaddr_t, ThermometerType> GoveeThermometers;
 std::map<bdaddr_t, time_t> GoveeLastDownload;
 std::map<bdaddr_t, Govee_Temp> GoveeLastReading;
-const std::filesystem::path GVHLastDownloadFileName("gvh-lastdownload.txt");
 /////////////////////////////////////////////////////////////////////////////
 volatile bool bRun = true; // This is declared volatile so that the compiler won't optimized it out of loops later in the code
 void SignalHandlerSIGINT(int signal)
@@ -1007,7 +1012,159 @@ std::filesystem::path GenerateLogFileName(const bdaddr_t &a, time_t timer = 0)
 	std::filesystem::path NewFormatFileName(LogDirectory / OutputFilename.str());
 	return(NewFormatFileName);
 }
-bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperatureMap, std::map<bdaddr_t, time_t> &PersistenceData)
+void GeneratePersistenceFile(std::map<bdaddr_t, time_t>& PersistenceData, std::map<bdaddr_t, ThermometerType> & ThermometerTypes, const std::filesystem::path& PersistenceFileName = "gvh-thermometer-types.txt")
+{
+	if (!PersistenceData.empty())
+	{
+		if (ConsoleVerbosity > 1)
+			for (auto const& [TheAddress, TheType] : ThermometerTypes)
+			{
+				std::cout << "[-------------------] [" << ba2string(TheAddress) << "] " << ThermometerType2String(TheType);
+				if (auto search = PersistenceData.find(TheAddress); search != PersistenceData.end())
+					std::cout << " " << timeToISO8601(search->second);
+				std::cout << std::endl;
+			}
+		// If PersistenceData has updated information, write new data to file
+		std::filesystem::path filename(LogDirectory / PersistenceFileName);
+		time_t MostRecentDownload(0);
+		for (auto const& [TheAddress, TheTime] : PersistenceData)
+			if (MostRecentDownload < TheTime)
+				MostRecentDownload = TheTime;
+#ifdef LIMIT_WRITES_TO_PERSISTENCE_DATA_FILE
+		bool NewData(true);
+		struct stat64 StatBuffer({ 0 });
+		StatBuffer.st_mtim.tv_sec = 0;
+		if (0 == stat64(filename.c_str(), &StatBuffer))
+		{
+			// compare the date of the file with the most recent data in the structure.
+			if (MostRecentDownload <= StatBuffer.st_mtim.tv_sec)
+				NewData = false;
+		}
+		if (NewData)
+#endif // LIMIT_WRITES_TO_PERSISTENCE_DATA_FILE
+		{
+			std::ofstream PersistenceFile(filename, std::ios_base::out | std::ios_base::trunc);
+			if (PersistenceFile.is_open())
+			{
+				for (auto const& [TheAddress, TheType] : ThermometerTypes)
+				{
+					PersistenceFile << ba2string(TheAddress) << "\t" << ThermometerType2String(TheType);
+					if (auto search = PersistenceData.find(TheAddress); search != PersistenceData.end())
+						PersistenceFile << "\t" << timeToISO8601(search->second);
+					PersistenceFile << std::endl;
+				}
+				PersistenceFile.close();
+				struct utimbuf Persistut({ 0 });
+				Persistut.actime = MostRecentDownload;
+				Persistut.modtime = MostRecentDownload;
+				utime(filename.c_str(), &Persistut);
+				if (ConsoleVerbosity > 1)
+					std::cout << "[" << getTimeISO8601(true) << "] Writing: " << filename.native() << std::endl;
+			}
+		}
+	}
+}
+void ReadPersistenceFile(std::map<bdaddr_t, time_t>& PersistenceData, std::map<bdaddr_t, ThermometerType>& ThermometerTypes, const std::filesystem::path& PersistenceFileName = "gvh-thermometer-types.txt")
+{
+	if (!CacheDirectory.empty()) // 2025-04-22 This is deprecated, but kept around to import an old file first if upgrading. 
+	{
+		std::filesystem::path CacheTypesFileName(CacheDirectory / "gvh-types-cache.txt"); // 2024-09-25 This location was a bad choice and has been deprecated to the logfile location (gvh-thermometer-types.txt)
+		std::ifstream TheFile(CacheTypesFileName);
+		if (TheFile.is_open())
+		{
+			if (ConsoleVerbosity > 0)
+				std::cout << "[" << getTimeISO8601(true) << "] Reading: " << CacheTypesFileName.string() << std::endl;
+			else
+				std::cerr << "Reading: " << CacheTypesFileName.string() << std::endl;
+			std::string TheLine;
+			while (std::getline(TheFile, TheLine))
+			{
+				std::smatch BluetoothAddress;
+				if (std::regex_search(TheLine, BluetoothAddress, BluetoothAddressRegex))
+				{
+					bdaddr_t TheBlueToothAddress(string2ba(BluetoothAddress.str()));
+					const std::string delimiters(" \t");
+					auto i = TheLine.find_first_of(delimiters);		// Find first delimiter
+					i = TheLine.find_first_not_of(delimiters, i);	// Move past consecutive delimiters
+					std::string theType = (i == std::string::npos) ? "" : TheLine.substr(i);
+					ThermometerTypes.insert_or_assign(TheBlueToothAddress, String2ThermometerType(theType));
+				}
+			}
+			TheFile.close();
+		}
+	}
+	if (!LogDirectory.empty()) // 2025-04-22 We always want to read the list of thermometer types at startup. It's low impact.
+	{
+		// 2025-04-22 I'm deprecating the seperate file gvh-lastdownload.txt so reading it before I read gvh-thermometer-types.txt
+		///////////////////////////////////////////////////////////////////////////////////////////////
+		// Read Persistence Data about when the last connection and download of data was done as opposed to listening for advertisments
+		// We don't want to connect too often because it uses more battery on the device, but it's nice to have a more consistent 
+		// timeline of data occasionally.
+		std::filesystem::path filename(LogDirectory / "gvh-lastdownload.txt");
+		std::ifstream TheFile(filename);
+		if (TheFile.is_open())
+		{
+			if (ConsoleVerbosity > 0)
+				std::cout << "[" << getTimeISO8601(true) << "] Reading: " << filename.string() << std::endl;
+			else
+				std::cerr << "Reading: " << filename.string() << std::endl;
+			std::string TheLine;
+			while (std::getline(TheFile, TheLine))
+			{
+				// rudimentary line checking. It has a BT Address and has a Tab character
+				std::smatch BluetoothAddress;
+				if (std::regex_search(TheLine, BluetoothAddress, BluetoothAddressRegex))
+				{
+					bdaddr_t TheBlueToothAddress(string2ba(BluetoothAddress.str()));
+					const std::string delimiters(" \t");
+					auto i = TheLine.find_first_of(delimiters);		// Find first delimiter
+					i = TheLine.find_first_not_of(delimiters, i);	// Move past consecutive delimiters
+					if (i != std::string::npos)
+						PersistenceData.insert_or_assign(TheBlueToothAddress, ISO8601totime(TheLine.substr(i)));
+				}
+			}
+			TheFile.close();
+		}
+		std::filesystem::path CacheTypesFileName(LogDirectory / PersistenceFileName);
+		TheFile.open(CacheTypesFileName);
+		if (TheFile.is_open())
+		{
+			if (ConsoleVerbosity > 0)
+				std::cout << "[" << getTimeISO8601(true) << "] Reading: " << CacheTypesFileName.string() << std::endl;
+			else
+				std::cerr << "Reading: " << CacheTypesFileName.string() << std::endl;
+			std::string TheLine;
+			while (std::getline(TheFile, TheLine))
+			{
+				std::smatch BluetoothAddress;
+				if (std::regex_search(TheLine, BluetoothAddress, BluetoothAddressRegex))
+				{
+					bdaddr_t TheBlueToothAddress(string2ba(BluetoothAddress.str()));
+					const std::string delimiters(" \t");
+					auto i = TheLine.find_first_of(delimiters);		// Find first delimiter
+					i = TheLine.find_first_not_of(delimiters, i);	// Move past consecutive delimiters
+					std::string theType = (i == std::string::npos) ? "" : TheLine.substr(i);
+					i = theType.find_first_of(delimiters);
+					if (i != std::string::npos)
+						theType.erase(i);
+					ThermometerTypes.insert_or_assign(TheBlueToothAddress, String2ThermometerType(theType));
+					// Now get the stored date
+					i = TheLine.find_first_of(delimiters);		// Find first delimiter
+					i = TheLine.find_first_not_of(delimiters, i);	// Move past consecutive delimiters
+					i = TheLine.find_first_of(delimiters, i);		// Find next delimiter
+					if (i != std::string::npos)
+					{
+						i = TheLine.find_first_not_of(delimiters, i);	// Move past consecutive delimiters
+						if (i != std::string::npos)
+							PersistenceData.insert_or_assign(TheBlueToothAddress, ISO8601totime(TheLine.substr(i)));
+					}
+				}
+			}
+			TheFile.close();
+		}
+	}
+}
+bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperatureMap, std::map<bdaddr_t, time_t> &PersistenceData, std::map<bdaddr_t, ThermometerType>& ThermometerTypes)
 {
 	bool rval = false;
 	if (!LogDirectory.empty())
@@ -1040,45 +1197,7 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 				}
 			}
 		}
-		if (!PersistenceData.empty())
-		{
-			if (ConsoleVerbosity > 1)
-				for (auto const& [TheAddress, TheTime] : PersistenceData)
-					std::cout << "[-------------------] [" << ba2string(TheAddress) << "] " << timeToISO8601(TheTime) << std::endl;
-			// If PersistenceData has updated information, write new data to file
-			std::filesystem::path filename(LogDirectory / GVHLastDownloadFileName);
-			time_t MostRecentDownload(0);
-			for (auto const& [TheAddress, TheTime] : PersistenceData)
-				if (MostRecentDownload < TheTime)
-					MostRecentDownload = TheTime;
-#ifdef LIMIT_WRITES_TO_PERSISTENCE_DATA_FILE
-			bool NewData(true);
-			struct stat64 StatBuffer({ 0 });
-			StatBuffer.st_mtim.tv_sec = 0;
-			if (0 == stat64(filename.c_str(), &StatBuffer))
-			{
-				// compare the date of the file with the most recent data in the structure.
-				if (MostRecentDownload <= StatBuffer.st_mtim.tv_sec)
-					NewData = false;
-			}
-			if (NewData)
-#endif // LIMIT_WRITES_TO_PERSISTENCE_DATA_FILE
-			{
-				std::ofstream PersistenceFile(filename, std::ios_base::out | std::ios_base::trunc);
-				if (PersistenceFile.is_open())
-				{
-					for (auto const& [TheAddress, TheTime] : PersistenceData)
-						PersistenceFile << ba2string(TheAddress) << "\t" << timeToISO8601(TheTime) << std::endl;
-					PersistenceFile.close();
-					struct utimbuf Persistut({ 0 });
-					Persistut.actime = MostRecentDownload;
-					Persistut.modtime = MostRecentDownload;
-					utime(filename.c_str(), &Persistut);
-					if (ConsoleVerbosity > 1)
-						std::cout << "[" << getTimeISO8601(true) << "] Writing: " << filename.native() << std::endl;
-				}
-			}
-		}
+		GeneratePersistenceFile(PersistenceData, ThermometerTypes);
 	}
 	else
 	{
@@ -1428,7 +1547,6 @@ void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::p
 		const std::size_t FontSize(12);
 		const std::size_t TickSize(2);
 		std::size_t GraphWidth = SVGWidth - (FontSize * 5);
-		const bool DrawHumidity = TheValues[0].GetHumidity() != 0; // HACK: I should really check the entire data set
 		struct stat64 SVGStat({0});	// Zero the stat64 structure on allocation
 		if (-1 == stat64(SVGFileName.c_str(), &SVGStat))
 			if (ConsoleVerbosity > 3)
@@ -1454,15 +1572,6 @@ void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::p
 				int GraphTop = FontSize + TickSize;
 				int GraphBottom = SVGHeight - GraphTop;
 				int GraphRight = SVGWidth - GraphTop;
-				if (DrawHumidity)
-				{
-					GraphWidth -= FontSize * 2;
-					GraphRight -= FontSize + TickSize * 2;
-				}
-				if (DrawBattery)
-					GraphWidth -= FontSize;
-				int GraphLeft = GraphRight - GraphWidth;
-				int GraphVerticalDivision = (GraphBottom - GraphTop) / 4;
 				double TempMin = DBL_MAX;
 				double TempMax = -DBL_MAX;
 				double HumiMin = DBL_MAX;
@@ -1483,6 +1592,16 @@ void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::p
 						HumiMin = std::min(HumiMin, TheValues[index].GetHumidity());
 						HumiMax = std::max(HumiMax, TheValues[index].GetHumidity());
 					}
+				const bool DrawHumidity = (HumiMax - HumiMin) > 0.1;
+				if (DrawHumidity)
+				{
+					GraphWidth -= FontSize * 2;
+					GraphRight -= FontSize + TickSize * 2;
+				}
+				if (DrawBattery)
+					GraphWidth -= FontSize;
+				int GraphLeft = GraphRight - GraphWidth;
+				int GraphVerticalDivision = (GraphBottom - GraphTop) / 4;
 
 				double TempVerticalDivision = (TempMax - TempMin) / 4;
 				double TempVerticalFactor = (GraphBottom - GraphTop) / (TempMax - TempMin);
@@ -2460,9 +2579,11 @@ void bt_ListDevices(void)
 	for (auto& hci_device : hci_devices)
 	{
 		if (hci_test_bit(HCI_UP, &hci_device.flags))
+		{
 			if (ConsoleVerbosity > 0)
 				ssOutput << "[                   ] ";
-		ssOutput << "Host Controller Address: " << ba2string(hci_device.bdaddr) << " BlueTooth Device ID: " << hci_device.dev_id << " HCI Name: " << hci_device.name << std::endl;
+			ssOutput << "Host Controller Address: " << ba2string(hci_device.bdaddr) << " BlueTooth Device ID: " << hci_device.dev_id << " HCI Name: " << hci_device.name << std::endl;
+		}
 	}
 	if (ConsoleVerbosity > 0)
 		std::cout << ssOutput.str();
@@ -3048,7 +3169,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 
 		std::ostringstream ssOutput;
 		if (ConsoleVerbosity > 0)
-			ssOutput << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ";
+			ssOutput << "[" << getTimeISO8601(true) << "] ";
 		ssOutput << "Download from device: [" << ba2string(GoveeBTAddress) << "]";
 		ssOutput << " " << timeToExcelLocal(TimeStart) << " " << timeToExcelLocal(TimeStop);
 		ssOutput << " (" << std::dec << DataPointsRecieved << ")";
@@ -3405,7 +3526,6 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																			AddressInGoveeSet = true;
 																			UpdateMRTGData(info->bdaddr, localTemp);	// puts the measurement in the fake MRTG data structure
 																			GoveeLastReading.insert_or_assign(info->bdaddr, localTemp);
-																			GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
 																		}
 																	}
 																	else if (ConsoleVerbosity > 1)
@@ -3448,7 +3568,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 															if (RecentDownload != GoveeLastDownload.end())
 																RecentDownload->second = DownloadTime;
 															else
-																GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, DownloadTime));
+																GoveeLastDownload.insert_or_assign(info->bdaddr, DownloadTime);
 														}
 														btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList, HCI_Passive_Scanning);
 														if (btRVal < 0)
@@ -3498,21 +3618,24 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 									if (ConsoleVerbosity > 1)
 										std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
 									TimeStart = TimeNow;
-									GenerateLogFile(GoveeTemperatures, GoveeLastDownload);
+									GenerateLogFile(GoveeTemperatures, GoveeLastDownload, GoveeThermometers);
 									GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
 									if (bMonitorLoggingDirectory)
 										MonitorLoggedData();
 								}
-								const int MaxMinutesBetweenBluetoothAdvertisments(3);
-								if (difftime(TimeNow, TimeAdvertisment) > MaxMinutesBetweenBluetoothAdvertisments * 60) // Hack to force scanning restart regularly
+								if (MaxMinutesBetweenBluetoothAdvertisments > 0)
 								{
-									if (ConsoleVerbosity > 0)
-										std::cout << "[" << getTimeISO8601(true) << "] No recent Bluetooth LE Advertisments! (> " << MaxMinutesBetweenBluetoothAdvertisments << " Minutes)" << std::endl;
-									btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList, HCI_Passive_Scanning);
-									if (btRVal < 0)
+									if (difftime(TimeNow, TimeAdvertisment) > MaxMinutesBetweenBluetoothAdvertisments * 60) // Hack to force scanning restart regularly
 									{
-										bRun = false;	// rely on inetd to restart entire process
-										ExitValue = EXIT_FAILURE;
+										if (ConsoleVerbosity > 0)
+											std::cout << "[" << getTimeISO8601(true) << "] ";
+										std::cout << "No recent Bluetooth LE Advertisments! (> " << MaxMinutesBetweenBluetoothAdvertisments << " Minutes)" << std::endl;
+										btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList, HCI_Passive_Scanning);
+										if (btRVal < 0)
+										{
+											bRun = false;	// rely on inetd to restart entire process
+											ExitValue = EXIT_FAILURE;
+										}
 									}
 								}
 							}
@@ -3523,7 +3646,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 				}
 			}
 			hci_close_dev(BlueToothDevice_Handle);
-			GenerateLogFile(GoveeTemperatures, GoveeLastDownload); // flush contents of accumulated map to logfiles
+			GenerateLogFile(GoveeTemperatures, GoveeLastDownload, GoveeThermometers); // flush contents of accumulated map to logfiles
 		}
 
 		if (ConsoleVerbosity > 1)
@@ -3898,7 +4021,7 @@ bool bluez_discovery(DBusConnection* dbus_conn, const char* adapter_path, const 
 	{
 		DBusError dbus_error;
 		dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
-		DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg, DBUS_TIMEOUT_INFINITE, &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga8d6431f17a9e53c9446d87c2ba8409f0
+		DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga8d6431f17a9e53c9446d87c2ba8409f0
 		if (ConsoleVerbosity > 0)
 			ssOutput << "[                   ] ";
 		ssOutput << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg);
@@ -4178,6 +4301,16 @@ void bluez_device_download(DBusConnection* dbus_conn, const char* adapter_path, 
 				ssOutput << std::dec << std::endl;
 			}
 			dbus_message_unref(dbus_msg_write);
+
+			if (ConsoleVerbosity > 0)
+				ssOutput << "[" << getTimeISO8601(true) << "] ";
+			ssOutput << "Request Download from device: [" << ba2string(dbusBTAddress) << "]";
+			ssOutput << " " << timeToExcelLocal(TimeDownloadStart-(DataPointsToRequest*60)) << " " << timeToExcelLocal(TimeDownloadStart);
+			ssOutput << " (" << std::dec << DataPointsToRequest << ")";
+			auto downloadtype = GoveeThermometers.find(dbusBTAddress);
+			if (downloadtype != GoveeThermometers.end())
+				ssOutput << " " << ThermometerType2String(downloadtype->second);
+			ssOutput << std::endl;
 		}
 	}
 #ifdef OLD_GET_UUIDS
@@ -4504,7 +4637,6 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 										ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
 										UpdateMRTGData(dbusBTAddress, localTemp);	// puts the measurement in the fake MRTG data structure
 										GoveeLastReading.insert_or_assign(dbusBTAddress, localTemp);
-										GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(dbusBTAddress, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
 										if (ConsoleVerbosity > 1)
 											ssOutput << " " << localTemp.WriteConsole();
 										if (!bluez_in_use)
@@ -4605,6 +4737,24 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 				if (ConsoleVerbosity > 3)
 					ssOutput << " " << Key << ": " << std::boolalpha << bool(value.bool_val);
 				bluez_in_use = bool(value.bool_val);
+				if (!bool(value.bool_val))
+				{
+					time_t LastDownloadTime = 0;
+					auto RecentDownload = GoveeLastDownload.find(dbusBTAddress);
+					if (RecentDownload != GoveeLastDownload.end())
+						LastDownloadTime = RecentDownload->second;
+					if (LastDownloadTime != 0)
+					{
+						if (!ssOutput.str().empty())
+							ssOutput << std::endl << ssStartLine.str();
+						ssOutput << "   Last Download from device: [" << ba2string(dbusBTAddress) << "] " << timeToExcelLocal(LastDownloadTime);;
+						auto downloadtype = GoveeThermometers.find(dbusBTAddress);
+						if (downloadtype != GoveeThermometers.end())
+							ssOutput << " " << ThermometerType2String(downloadtype->second);
+						if (ConsoleVerbosity < 1)
+							ssOutput << std::endl;
+					}
+				}
 			}
 		}
 		else if (!Key.compare("ServicesResolved"))
@@ -4707,13 +4857,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 									LastReportedTime = localTemp.Time;
 								}
 								if (LastReportedTime != 0)
-								{
-									auto RecentDownload = GoveeLastDownload.find(dbusBTAddress);
-									if (RecentDownload != GoveeLastDownload.end())
-										RecentDownload->second = LastReportedTime;
-									else
-										GoveeLastDownload.insert(std::make_pair(dbusBTAddress, LastReportedTime));
-								}
+									GoveeLastDownload.insert_or_assign(dbusBTAddress, LastReportedTime);
 								if (offset < 1)	// If offset is 6 or less we are in the last bit of data, and as soon as we decode it we can close the connection.
 									bluez_disconnect = true;
 							}
@@ -4967,6 +5111,8 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 	}
 	if (ConsoleVerbosity > 1)
 		std::cout << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
 }
 void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAddress, const std::set<bdaddr_t> & BT_WhiteList, const time_t& TimeNow)
 {
@@ -5004,6 +5150,8 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 	}
 	if (ConsoleVerbosity > 1)
 		std::cout << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
 }
 /////////////////////////////////////////////////////////////////////////////
 time_t ConnectAndDownload(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress, const time_t GoveeLastReadTime = 0, const int BatteryToRecord = 0)
@@ -5219,10 +5367,10 @@ time_t ConnectAndDownload(DBusConnection* dbus_conn, const char* adapter_path, c
 	return(TimeDownloadStart);
 }
 /////////////////////////////////////////////////////////////////////////////
-int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_WhiteList, bool bMonitorLoggingDirectory)
+int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_WhiteList, int& ExitValue, bool bMonitorLoggingDirectory)
 {
 	int rVal(0);
-	time_t TimeStart(0), TimeLog(0), TimeSVG(0);
+	time_t TimeStart(0), TimeLog(0), TimeSVG(0), TimeAdvertisment(0);
 	std::ostringstream ssOutput;
 	// Main loop
 	bRun = true;
@@ -5357,6 +5505,11 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 											bluez_device_disconnect(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
 											bluez_disconnect = false;
 										}
+										for (const auto &a : GoveeLastReading)
+										{
+											if (a.second.Time > TimeAdvertisment)
+												TimeAdvertisment = a.second.Time;
+										}
 									}
 									dbus_message_unref(dbus_msg); // Free the message
 								}
@@ -5389,7 +5542,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 												if (RecentDownload != GoveeLastDownload.end())
 													RecentDownload->second = DownloadTime;
 												else
-													GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(TheAddress, DownloadTime));
+													GoveeLastDownload.insert_or_assign(TheAddress, DownloadTime);
 											}
 										}
 									}
@@ -5401,7 +5554,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 								if (ConsoleVerbosity > 1)
 									std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
 								TimeLog = TimeNow;
-								GenerateLogFile(GoveeTemperatures, GoveeLastDownload);
+								GenerateLogFile(GoveeTemperatures, GoveeLastDownload, GoveeThermometers);
 								GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
 								if (bMonitorLoggingDirectory)
 									MonitorLoggedData();
@@ -5410,10 +5563,25 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 										for (auto& [UUID, Path] : PathUUID)
 											std::cout << "[-------------------] [" << ba2string(btAddress) << "] " << UUID << " " << Path << std::endl;
 							}
+							if ((MaxMinutesBetweenBluetoothAdvertisments > 0) && (TimeAdvertisment > 0))
+							{
+								if (difftime(TimeNow, TimeAdvertisment) > MaxMinutesBetweenBluetoothAdvertisments * 60) // Hack to force scanning restart regularly
+								{
+									if (ConsoleVerbosity > 0)
+										std::cout << "[" << getTimeISO8601(true) << "] ";
+									std::cout << "No recent Bluetooth LE Advertisments! (> " << MaxMinutesBetweenBluetoothAdvertisments << " Minutes)" << std::endl;
+									//btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList, HCI_Passive_Scanning);
+									//if (btRVal < 0)
+									//{
+									bRun = false;	// rely on inetd to restart entire process
+									ExitValue = EXIT_FAILURE;
+									//}
+								}
+							}
 #ifdef DEBUG
 						} while (bRun && difftime(TimeNow, TimeStart) < 300); // Maintain DBus connection for no more than 5 minutes
 #else
-						} while (bRun && difftime(TimeNow, TimeStart) < (60 * 30));  // Maintain DBus connection for no more than 30 minutes
+						} while (bRun && difftime(TimeNow, TimeStart) < (60 * 60 * 24));  // Maintain DBus connection for no more than 24 hours
 #endif // DEBUG
 						for (auto& MatchRule : MatchRules)
 						{
@@ -5439,6 +5607,8 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 						bluez_dbus_RemoveKnownDevices(dbus_conn, BlueZAdapter.c_str(), GoveeThermometers);
 						//bluez_filter_le(dbus_conn, BlueZAdapter.c_str(), false, false); // remove discovery filter
 					}
+					else
+						bluez_power_on(dbus_conn, BlueZAdapter.c_str(), false);
 				}
 			}
 			if (ConsoleVerbosity > 0)
@@ -5453,7 +5623,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 			dbus_connection_unref(dbus_conn);	// https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga6385ff09bc108238c4429e7c195dab25
 		}
 	}
-	GenerateLogFile(GoveeTemperatures, GoveeLastDownload); // flush contents of accumulated map to logfiles
+	GenerateLogFile(GoveeTemperatures, GoveeLastDownload, GoveeThermometers); // flush contents of accumulated map to logfiles
 	return(rVal);
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -5477,16 +5647,17 @@ static void usage(int argc, char **argv)
 	std::cout << "    -c | --celsius       SVG output using degrees C [" << std::boolalpha << !SVGFahrenheit << "]" << std::endl;
 	std::cout << "    -b | --battery graph Draw the battery status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
 	std::cout << "    -x | --minmax graph  Draw the minimum and maximum temperature and humidity status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
-	std::cout << "    -d | --download      Periodically attempt to connect and download stored data" << std::endl;
+	std::cout << "    -d | --download days Periodically attempt to connect and download stored data" << std::endl;
 	std::cout << "    -n | --no-bluetooth  Monitor Logging Directory and process logs without Bluetooth Scanning" << std::endl;
 	std::cout << "    -M | --monitor       Monitor Logging Directory" << std::endl;
-	#ifdef _BLUEZ_HCI_
+	std::cout << "    -r | --restart       Maximum minutes between Bluetooth advertisments [" << MaxMinutesBetweenBluetoothAdvertisments << "]" << std::endl;
+#ifdef _BLUEZ_HCI_
 	std::cout << "    -H | --HCI           Prefer deprecated BlueZ HCI interface instead of DBus" << std::endl;
 	std::cout << "    -p | --passive       Bluetooth LE Passive Scanning" << std::endl;
 	#endif // _BLUEZ_HCI_
 	std::cout << std::endl;
 }
-static const char short_options[] = "hl:t:v:m:o:C:a:f:s:i:T:cb:x:dpnHM";
+static const char short_options[] = "hl:t:v:m:o:C:a:f:s:i:T:cb:x:d::pnHMR:";
 static const struct option long_options[] = {
 		{ "help",   no_argument,       NULL, 'h' },
 		{ "log",    required_argument, NULL, 'l' },
@@ -5503,11 +5674,12 @@ static const struct option long_options[] = {
 		{ "celsius",no_argument,       NULL, 'c' },
 		{ "battery",required_argument, NULL, 'b' },
 		{ "minmax",	required_argument, NULL, 'x' },
-		{ "download",no_argument,      NULL, 'd' },
+		{ "download",optional_argument,NULL, 'd' },
 		{ "passive",no_argument,       NULL, 'p' },
 		{ "no-bluetooth",no_argument,  NULL, 'n' },
 		{ "HCI",	no_argument,       NULL, 'H' },
 		{ "monitor",no_argument,       NULL, 'M' },
+		{ "restart",required_argument, NULL, 'R' },
 		{ 0, 0, 0, 0 }
 };
 /////////////////////////////////////////////////////////////////////////////
@@ -5522,15 +5694,12 @@ int main(int argc, char **argv)
 	std::set<bdaddr_t> BT_WhiteList;
 	bdaddr_t OnlyFilterAddress = { 0 };
 
-	for (;;)
+	int option(0);
+	while ((option = getopt_long(argc, argv, short_options, long_options, NULL)) != -1)
 	{
 		std::string TempString;
 		std::filesystem::path TempPath;
-		int idx;
-		int c = getopt_long(argc, argv, short_options, long_options, &idx);
-		if (-1 == c)
-			break;
-		switch (c)
+		switch (option)
 		{
 		case 0: /* getopt_long() flag */
 			break;
@@ -5579,7 +5748,16 @@ int main(int argc, char **argv)
 				CacheDirectory = TempPath;
 			break;
 		case 'd':	// --download
-			DaysBetweenDataDownload = 14;
+			if (optarg == NULL && optind < argc && argv[optind][0] != '-') // HACK: See https://cfengine.com/blog/2021/optional-arguments-with-getopt-long/
+				optarg = argv[optind++];
+			if (optarg != NULL)
+			{
+				try { DaysBetweenDataDownload = std::stoi(optarg); }
+				catch (const std::invalid_argument& ia) { std::cerr << "Invalid argument: " << ia.what() << std::endl; exit(EXIT_FAILURE); }
+				catch (const std::out_of_range& oor) { std::cerr << "Out of Range error: " << oor.what() << std::endl; exit(EXIT_FAILURE); }
+			}
+			else
+				DaysBetweenDataDownload = 14;
 			break;
 		case 'n':	// --no-bluetooth
 			UseBluetooth = false;
@@ -5621,6 +5799,11 @@ int main(int argc, char **argv)
 			break;
 		case 'M':
 			bMonitorLoggingDirectory = true;
+			break;
+		case 'R':
+			try { MaxMinutesBetweenBluetoothAdvertisments = std::stoi(optarg); }
+			catch (const std::invalid_argument& ia) { std::cerr << "Invalid argument: " << ia.what() << std::endl; exit(EXIT_FAILURE); }
+			catch (const std::out_of_range& oor) { std::cerr << "Out of Range error: " << oor.what() << std::endl; exit(EXIT_FAILURE); }
 			break;
 		default:
 			usage(argc, argv);
@@ -5673,103 +5856,21 @@ int main(int argc, char **argv)
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	tzset();
 	///////////////////////////////////////////////////////////////////////////////////////////////
+	if (!SVGDirectory.empty())
+	{
+		if (SVGTitleMapFilename.empty()) // If this wasn't set as a parameter, look in the SVG Directory for a default titlemap
+			SVGTitleMapFilename = std::filesystem::path(SVGDirectory / "gvh-titlemap.txt");
+		ReadTitleMap(SVGTitleMapFilename);
+	}
+	ReadPersistenceFile(GoveeLastDownload, GoveeThermometers, "gvh-thermometer-types.txt");
 	if (UseBluetooth)
 	{
 		if (!SVGDirectory.empty())
 		{
-			if (SVGTitleMapFilename.empty()) // If this wasn't set as a parameter, look in the SVG Directory for a default titlemap
-				SVGTitleMapFilename = std::filesystem::path(SVGDirectory / "gvh-titlemap.txt");
-			ReadTitleMap(SVGTitleMapFilename);
-			if (!CacheDirectory.empty())
-			{
-				std::filesystem::path CacheTypesFileName(CacheDirectory / "gvh-types-cache.txt"); // 2024-09-25 This location was a bad choice and has been deprecated to the logfile location (gvh-thermometer-types.txt)
-				std::ifstream TheFile(CacheTypesFileName);
-				if (TheFile.is_open())
-				{
-					if (ConsoleVerbosity > 0)
-						std::cout << "[" << getTimeISO8601(true) << "] Reading: " << CacheTypesFileName.string() << std::endl;
-					else
-						std::cerr << "Reading: " << CacheTypesFileName.string() << std::endl;
-					std::string TheLine;
-					while (std::getline(TheFile, TheLine))
-					{
-						std::smatch BluetoothAddress;
-						if (std::regex_search(TheLine, BluetoothAddress, BluetoothAddressRegex))
-						{
-							bdaddr_t TheBlueToothAddress(string2ba(BluetoothAddress.str()));
-							const std::string delimiters(" \t");
-							auto i = TheLine.find_first_of(delimiters);		// Find first delimiter
-							i = TheLine.find_first_not_of(delimiters, i);	// Move past consecutive delimiters
-							std::string theType = (i == std::string::npos) ? "" : TheLine.substr(i);
-							GoveeThermometers.insert(std::make_pair(TheBlueToothAddress, String2ThermometerType(theType)));
-						}
-					}
-					TheFile.close();
-				}
-			}
-			if (!LogDirectory.empty())
-			{
-				std::filesystem::path CacheTypesFileName(LogDirectory / "gvh-thermometer-types.txt");
-				std::ifstream TheFile(CacheTypesFileName);
-				if (TheFile.is_open())
-				{
-					if (ConsoleVerbosity > 0)
-						std::cout << "[" << getTimeISO8601(true) << "] Reading: " << CacheTypesFileName.string() << std::endl;
-					else
-						std::cerr << "Reading: " << CacheTypesFileName.string() << std::endl;
-					std::string TheLine;
-					while (std::getline(TheFile, TheLine))
-					{
-						std::smatch BluetoothAddress;
-						if (std::regex_search(TheLine, BluetoothAddress, BluetoothAddressRegex))
-						{
-							bdaddr_t TheBlueToothAddress(string2ba(BluetoothAddress.str()));
-							const std::string delimiters(" \t");
-							auto i = TheLine.find_first_of(delimiters);		// Find first delimiter
-							i = TheLine.find_first_not_of(delimiters, i);	// Move past consecutive delimiters
-							std::string theType = (i == std::string::npos) ? "" : TheLine.substr(i);
-							GoveeThermometers.insert(std::make_pair(TheBlueToothAddress, String2ThermometerType(theType)));
-						}
-					}
-					TheFile.close();
-				}
-			}
 			ReadCacheDirectory(); // if cache directory is configured, read it before reading all the normal logs
 			ReadLoggedData(); // only read the logged data if creating SVG files
 			GenerateCacheFile(GoveeMRTGLogs); // update cache files if any new data was in logs
 			WriteAllSVG();
-		}
-		///////////////////////////////////////////////////////////////////////////////////////////////
-		// Read Persistence Data about when the last connection and download of data was done as opposed to listening for advertisments
-		// We don't want to connect too often because it uses more battery on the device, but it's nice to have a more consistent 
-		// timeline of data occasionally.
-		if (!LogDirectory.empty())
-		{
-			std::filesystem::path filename(LogDirectory / GVHLastDownloadFileName);
-			std::ifstream TheFile(filename);
-			if (TheFile.is_open())
-			{
-				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601(true) << "] Reading: " << filename.string() << std::endl;
-				else
-					std::cerr << "Reading: " << filename.string() << std::endl;
-				std::string TheLine;
-				while (std::getline(TheFile, TheLine))
-				{
-					// rudimentary line checking. It has a BT Address and has a Tab character
-					std::smatch BluetoothAddress;
-					if (std::regex_search(TheLine, BluetoothAddress, BluetoothAddressRegex))
-					{
-						bdaddr_t TheBlueToothAddress(string2ba(BluetoothAddress.str()));
-						const std::string delimiters(" \t");
-						auto i = TheLine.find_first_of(delimiters);		// Find first delimiter
-						i = TheLine.find_first_not_of(delimiters, i);	// Move past consecutive delimiters
-						if (i != std::string::npos)
-							GoveeLastDownload.insert(std::make_pair(TheBlueToothAddress, ISO8601totime(TheLine.substr(i))));
-					}
-				}
-				TheFile.close();
-			}
 		}
 		///////////////////////////////////////////////////////////////////////////////////////////////
 		// Set up CTR-C signal handler
@@ -5778,26 +5879,12 @@ int main(int argc, char **argv)
 		SignalHandlerPointer previousHandlerSIGHUP = std::signal(SIGHUP, SignalHandlerSIGHUP);	// Install Hangup signal handler
 		///////////////////////////////////////////////////////////////////////////////////////////////
 		if (!bUse_HCI_Interface)	// BlueZ over DBus is the recommended method of Bluetooth
-			bUse_HCI_Interface = (0 != BlueZ_DBus_Mainloop(ControllerAddress, BT_WhiteList, bMonitorLoggingDirectory));
+			bUse_HCI_Interface = (0 != BlueZ_DBus_Mainloop(ControllerAddress, BT_WhiteList, ExitValue, bMonitorLoggingDirectory));
 		#ifdef _BLUEZ_HCI_
 		if (bUse_HCI_Interface)	// The HCI interface for bluetooth is deprecated, with BlueZ over DBus being preferred
 			BlueZ_HCI_MainLoop(ControllerAddress, BT_WhiteList, ExitValue, bMonitorLoggingDirectory, bUse_HCI_Passive);
 		#endif // _BLUEZ_HCI_
-		if (!LogDirectory.empty())
-		{
-			std::filesystem::path CacheTypesFileName(LogDirectory / "gvh-thermometer-types.txt");
-			std::ofstream CacheFile(CacheTypesFileName, std::ios_base::out | std::ios_base::trunc);
-			if (CacheFile.is_open())
-			{
-				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601(true) << "] Writing: " << CacheTypesFileName.native() << std::endl;
-				else
-					std::cerr << "Writing: " << CacheTypesFileName.native() << std::endl;
-				for (auto &[localAddress, localType] : GoveeThermometers)
-					CacheFile << ba2string(localAddress) << "\t" << ThermometerType2String(localType) << std::endl;
-				CacheFile.close();
-			}
-		}
+		GeneratePersistenceFile(GoveeLastDownload, GoveeThermometers, "gvh-thermometer-types.txt");
 		///////////////////////////////////////////////////////////////////////////////////////////////
 		std::signal(SIGHUP, previousHandlerSIGHUP);	// Restore original Hangup signal handler
 		std::signal(SIGINT, previousHandlerSIGINT);	// Restore original Ctrl-C signal handler

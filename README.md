@@ -1,11 +1,20 @@
 # GoveeBTTempLogger
-Govee H5074, H5075, H5100, H5101, H5104, H5105, H5174, H5177, and H5179 Bluetooth Low Energy Temperature and Humidity Logger, and Govee H5181, H5182 and H5183 Smart Meat Thermometers
+Govee H5074, H5075, H5100, H5101, H5104, H5105, H5110, H5174, H5177, and H5179 Bluetooth Low Energy Temperature and Humidity Logger, and Govee H5181, H5182 and H5183 Smart Meat Thermometers
 
 Each of these devices currently cost less than $15 on Amazon and use BLE for communication, so don't require setting up a manufacterer account to track the data.  
 
 GoveeBTTempLogger was initially built using Microsoft Visual Studio 2017, targeting ARM processor running on Linux. I'm using a Raspberry Pi 4 as my linux host. I've verified the same code works on a Raspbery Pi ZeroW, Raspberry Pi Zero2W, Raspberry Pi 3b, and a Raspberry Pi 5.
 
 GoveeBTTempLogger creates a log file, if specified by the -l or --log option, for each of the devices it receives broadcasted data from using a simple tab-separated format that's compatible with loading in Microsoft Excel. Each line in the log file has Date (recorded in UTC), Temperature, relative humidity, and battery percent. The log file naming format includes the unique Govee device name, the current year, and month. A new log file is created monthly.
+
+### Trixie Release Information 2025-10-07
+Raspberry released the update to Trixie this week https://www.raspberrypi.com/news/trixie-the-new-version-of-raspberry-pi-os/ and while GoveeBTTempLogger works on the updated system, the built in bluetooth is blocked on many systems. I had two issues open related to Trixie, https://github.com/wcbonner/GoveeBTTempLogger/issues/89 and https://github.com/wcbonner/GoveeBTTempLogger/issues/91 with the second finding the solution, which is to run the command `rfkill unblock bluetooth` 
+```
+wim@WimPiZeroW-Sola:~ $ rfkill
+ID TYPE      DEVICE      SOFT      HARD
+ 0 bluetooth hci0     blocked unblocked
+ 1 wlan      phy0   unblocked unblocked
+```
 
 ### Minor update 2022-12-17
 Added the option --index to create an html index file based on the existing log files. This option creates an index file and exits without running any of the bluetooth code. It can be run without affecting a running instance of the program listening to Bluetooth advertisments. Example command to create index: 
@@ -105,6 +114,18 @@ mkdir --verbose --mode 0755 --parents /var/log/goveebttemplogger /var/cache/gove
 chown --changes --recursive goveebttemplogger:www-data /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
 chmod --changes --recursive 0644 /var/log/goveebttemplogger/* /var/cache/goveebttemplogger/* /var/www/html/goveebttemplogger/*
 sudo setcap 'cap_net_raw,cap_net_admin+eip' /usr/local/bin/goveebttemplogger
+rfkill --output-all
+rfkill unblock bluetooth
+```
+
+##### Debian 13 (Trixie) 2025-12-08
+The Raspberry Pi seems to configure the built in bluetooth support with rfkill to be soft blocked. The two rfkill commands were
+added to the [postinst](https://github.com/wcbonner/GoveeBTTempLogger/blob/master/postinst) file to display the initial settings
+and then unblock bluetooth. This is the `rfkill --output-all` output on a fresh installation.
+```
+ID TYPE      DEVICE TYPE-DESC         SOFT      HARD
+ 0 bluetooth hci0   Bluetooth      blocked unblocked
+ 1 wlan      phy0   Wireless LAN unblocked unblocked
 ```
 
 The systemd unit file section `ExecStart` to start the service has been broken into several lines for clarity.
@@ -120,7 +141,8 @@ ExecStart=/usr/local/bin/goveebttemplogger \
     --verbose 0 \
     --log /var/log/goveebttemplogger \
     --time 60 \
-    --download \
+    --download 7 \
+    --restart 3 \
     --svg /var/www/html/goveebttemplogger --battery 8 --minmax 8 \
     --cache /var/cache/goveebttemplogger
 KillSignal=SIGINT
@@ -163,17 +185,17 @@ sudo apt install bluetooth bluez libbluetooth-dev -y
  * -o (--only) Takes a bluetooth address as parameter and only reports on that address.
  * -C (--controller) Takes a bluetooth address as parameter to specify the controller to listen with.
  * -a (--average) Affects MRTG output. The parameter is a number of minutes. 0 simply returns the last value in the log file. Any number more than zero will average the entries over that number of minutes. If no entries were logged in that time period, no results are returned. MRTG graphing is then determined by the setting of the unknaszero option in the MRTG.conf file.
- * -d (--download) download the 20 days historical data from each device. This is still very much a work in progress.
  * -s (--svg) SVG output directory. Writes four SVG files per device to this directory every 5 minutes that can be used in standard web page. 
  * -i (--index) HTML index file for SVG files, must be paired with log directory. HTML file is a fully qualified name. This is meant as a one time run option just to create a simple index of all the SVG files. The program will exit after creating the index file.
  * -T (--titlemap) SVG-title fully-qualified-filename. A mapfile with bluetooth addresses as the beginning of each line, and a replacement title to be used in the SVG graph.
  * -c (--celsius) SVG output using degrees C
  * -b (--battery) Draw the battery status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly
  * -x (--minmax) Draw the minimum and maximum temperature and humidity status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly
- * -d (--download) Periodically attempt to connect and download stored data
+ * -d (--download) Sets the number of days between attempts to connect and download stored data
  * -n (--no-bluetooth) Monitor Logging Directory and process logs without Bluetooth Scanning
  * -M (--monitor) Monitor Logged Data for updated data
- * -H (--HCI) Prefer deprecated BlueZ HCI interface instead of DBus
+ * -R (--restart) Maximum minutes without bluetooth advertisments before attempting to restart
+ * -H (--HCI) Prefer deprecated BlueZ HCI interface over modern DBus communication
  * -p (--passive) Bluetooth LE Passive Scanning
 
  ## Log File Format
@@ -251,19 +273,23 @@ My old code didn't properly display the UUID when it was a 128 bit UUID, I stand
 
 **494e5445-4c4c-495f-524f-434b535f2013** is the 128 bit UUID that will return requested historical data.
 
-Most of the devices hold 20 days of history. The GVH5177 and GVH5174 devices hold a month of data.
+Most of the devices hold 20 days of history. The GVH5177 devices hold a month of data. In my output below, the GVH5105 and GVH5179 devices have had their batteries replaced within the last month and I was not able to determine the historical data size.
 
 ```
-Download from device: [A4:C1:38:DC:CC:3D] 2023-02-03 13:52:00 2023-02-23 13:52:00 (28800)
-Download from device: [A4:C1:38:EC:0B:03] 2023-02-03 13:51:00 2023-02-23 13:52:00 (28801)
-Download from device: [E3:5E:CC:21:5C:0F] 2023-02-03 13:53:00 2023-02-23 13:53:00 (28800)
-Download from device: [A4:C1:38:0D:3B:10] 2023-01-24 13:50:00 2023-02-23 13:53:00 (43203)
-Download from device: [A4:C1:38:D5:A3:3B] 2023-02-03 13:54:00 2023-02-23 13:54:00 (28800)
-Download from device: [A4:C1:38:65:A2:6A] 2023-02-03 13:52:00 2023-02-23 13:55:00 (28803)
-Download from device: [A4:C1:38:05:C7:A1] 2023-02-03 13:53:00 2023-02-23 13:56:00 (28803)
-Download from device: [A4:C1:38:13:AE:36] 2023-02-03 13:54:00 2023-02-23 13:57:00 (28803)
-Download from device: [C2:35:33:30:25:50] 2024-01-15 22:19:00 2024-02-03 20:01:00 (27222)
-Download from device: [D0:35:33:33:44:03] 2024-01-14 20:00:00 2024-02-03 20:00:00 (28800)
+Download from device: [E3:5E:CC:21:5C:0F] 2025-02-10 20:53:00 2025-03-02 20:57:00 (28804) (GVH5074)
+Download from device: [E3:60:59:21:80:65] 2025-02-10 20:48:00 2025-03-02 20:50:00 (28802) (GVH5074)
+Download from device: [A4:C1:38:D5:A3:3B] 2025-02-10 20:55:00 2025-03-02 20:57:00 (28802) (GVH5074)
+Download from device: [A4:C1:38:05:C7:A1] 2025-02-10 21:03:00 2025-03-02 21:05:00 (28802) (GVH5074)
+Download from device: [E3:8E:C8:C1:98:9A] 2025-02-10 20:34:00 2025-03-02 20:39:00 (28805) (GVH5074)
+Download from device: [E3:60:59:23:14:7D] 2025-02-10 20:36:00 2025-03-02 20:40:00 (28804) (GVH5074)
+Download from device: [A4:C1:38:37:BC:AE] 2025-02-10 21:03:00 2025-03-02 21:06:00 (28803) (GVH5075)
+Download from device: [A4:C1:38:0D:42:7B] 2025-02-10 20:49:00 2025-03-02 20:49:00 (28800) (GVH5075)
+Download from device: [C2:35:33:30:25:50] 2025-02-10 20:55:00 2025-03-02 20:55:00 (28800) (GVH5100)
+Download from device: [C3:36:35:30:61:77] 2025-02-10 20:51:00 2025-03-02 20:51:00 (28800) (GVH5104)
+Download from device: [D0:35:33:33:44:03] 2025-02-19 16:13:00 2025-03-02 21:05:00 (16132) (GVH5105)
+Download from device: [A4:C1:38:DC:CC:3D] 2025-02-10 21:02:00 2025-03-02 21:06:00 (28804) (GVH5174)
+Download from device: [A4:C1:38:0D:3B:10] 2025-01-31 20:55:00 2025-03-02 20:56:00 (43201) (GVH5177)
+Download from device: [D3:21:C4:06:25:0D] 2025-02-15 14:51:00 2025-03-02 20:44:00 (21953) (GVH5179)
 ```
 
 ```
