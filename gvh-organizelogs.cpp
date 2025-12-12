@@ -53,6 +53,7 @@
 #include <unistd.h> // For close()
 #include <utime.h>
 #include "wimiso8601.h"
+#include <iostream>
 #if !defined(__GLIBC__)
     #define stat64 stat
 #endif
