@@ -41,6 +41,7 @@
 #include <fstream>
 #include <getopt.h>
 #include <iomanip>
+#include <iostream>
 #include <locale>
 #include <map>
 #include <queue>
@@ -51,12 +52,7 @@
 #include <sys/types.h>
 #include <unistd.h> // For close()
 #include <utime.h>
-#ifdef _MSC_VER
-#include "stdafx.h"
-#else
 #include "wimiso8601.h"
-#endif // _MSC_VER
-#include <iostream>
 #if !defined(__GLIBC__)
     #define stat64 stat
 #endif

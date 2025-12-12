@@ -3,6 +3,7 @@
 #else
 #include "wimiso8601.h"
 #endif // _MSC_VER
+#include <iostream>
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t& TheTime, const bool LocalTime)
 {
