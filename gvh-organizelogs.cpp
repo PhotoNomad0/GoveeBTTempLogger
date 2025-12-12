@@ -307,7 +307,7 @@ int main(int argc, char** argv)
 				if (TheFile.is_open())
 				{
 					std::deque<std::string> DataLines;
-					std::cout << "[" << getTimeISO8601() << "] Reading: " << FQFileName;
+					std::cout << "[" << getTimeISO8601() << "] Reading FQFileName: " << FQFileName;
 					const std::regex ModifiedBluetoothAddressRegex("[[:xdigit:]]{12}");
 					std::smatch BluetoothAddressInFilename;
 					std::string Stem(FQFileName.stem());

@@ -1073,7 +1073,7 @@ void ReadPersistenceFile(std::map<bdaddr_t, time_t>& PersistenceData, std::map<b
 		if (TheFile.is_open())
 		{
 			if (ConsoleVerbosity > 0)
-				std::cout << "[" << getTimeISO8601(true) << "] Reading: " << CacheTypesFileName.string() << std::endl;
+				std::cout << "[" << getTimeISO8601(true) << "] Reading CacheTypesFileName: " << CacheTypesFileName.string() << std::endl;
 			else
 				std::cerr << "Reading: " << CacheTypesFileName.string() << std::endl;
 			std::string TheLine;
@@ -1105,7 +1105,7 @@ void ReadPersistenceFile(std::map<bdaddr_t, time_t>& PersistenceData, std::map<b
 		if (TheFile.is_open())
 		{
 			if (ConsoleVerbosity > 0)
-				std::cout << "[" << getTimeISO8601(true) << "] Reading: " << filename.string() << std::endl;
+				std::cout << "[" << getTimeISO8601(true) << "] Reading LogDirectory: " << filename.string() << std::endl;
 			else
 				std::cerr << "Reading: " << filename.string() << std::endl;
 			std::string TheLine;
@@ -1130,7 +1130,7 @@ void ReadPersistenceFile(std::map<bdaddr_t, time_t>& PersistenceData, std::map<b
 		if (TheFile.is_open())
 		{
 			if (ConsoleVerbosity > 0)
-				std::cout << "[" << getTimeISO8601(true) << "] Reading: " << CacheTypesFileName.string() << std::endl;
+				std::cout << "[" << getTimeISO8601(true) << "] Reading CacheTypesFileName: " << CacheTypesFileName.string() << std::endl;
 			else
 				std::cerr << "Reading: " << CacheTypesFileName.string() << std::endl;
 			std::string TheLine;
@@ -1357,7 +1357,7 @@ void ReadCacheDirectory(void)
 				if (TheFile.is_open())
 				{
 					if (ConsoleVerbosity > 0)
-						std::cout << "[" << getTimeISO8601(true) << "] Reading: " << files.begin()->string() << std::endl;
+						std::cout << "[" << getTimeISO8601(true) << "] Reading ReadCacheDirectory files: " << files.begin()->string() << std::endl;
 					else
 						std::cerr << "Reading: " << files.begin()->string() << std::endl;
 					std::string TheLine;
@@ -1936,7 +1936,7 @@ void ReadLoggedData(const std::filesystem::path& filename)
 		if (bReadFile)
 		{
 			if (ConsoleVerbosity > 0)
-				std::cout << "[" << getTimeISO8601(true) << "] Reading: " << filename.string() << std::endl;
+				std::cout << "[" << getTimeISO8601(true) << "] Reading ReadLoggedData filename: " << filename.string() << std::endl;
 			else
 				std::cerr << "Reading: " << filename.string() << std::endl;
 			std::ifstream TheFile(filename);
@@ -2019,7 +2019,7 @@ bool ReadTitleMap(const std::filesystem::path& TitleMapFilename)
 			{
 				LastModified = TitleMapFileStat.st_mtim.tv_sec;	// only update our time if the file is actually read
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601(true) << "] Reading: " << TitleMapFilename.string() << std::endl;
+					std::cout << "[" << getTimeISO8601(true) << "] Reading TitleMapFilename: " << TitleMapFilename.string() << std::endl;
 				else
 					std::cerr << "Reading: " << TitleMapFilename.string() << std::endl;
 				std::string TheLine;
@@ -2097,7 +2097,7 @@ void WriteSVGIndex(const std::filesystem::path LogDirectory, const std::filesyst
 	if (!LogDirectory.empty())
 	{
 		if (ConsoleVerbosity > 0)
-			std::cout << "[" << getTimeISO8601(true) << "] Reading: " << LogDirectory << std::endl;
+			std::cout << "[" << getTimeISO8601(true) << "] Reading WriteSVGIndex LogDirectory: " << LogDirectory << std::endl;
 		std::set<std::string> files;
 		for (auto const& dir_entry : std::filesystem::directory_iterator{ LogDirectory })
 			if (dir_entry.is_regular_file())
