@@ -1132,7 +1132,7 @@ void ReadPersistenceFile(std::map<bdaddr_t, time_t>& PersistenceData, std::map<b
 			if (ConsoleVerbosity > 0)
 				std::cout << "[" << getTimeISO8601(true) << "] Reading CacheTypesFileName: " << CacheTypesFileName.string() << std::endl;
 			else
-				std::cerr << "Reading: " << CacheTypesFileName.string() << std::endl;
+				std::cerr << "error Reading CacheTypesFileName: " << CacheTypesFileName.string() << std::endl;
 			std::string TheLine;
 			while (std::getline(TheFile, TheLine))
 			{
@@ -1359,7 +1359,7 @@ void ReadCacheDirectory(void)
 					if (ConsoleVerbosity > 0)
 						std::cout << "[" << getTimeISO8601(true) << "] Reading ReadCacheDirectory files: " << files.begin()->string() << std::endl;
 					else
-						std::cerr << "Reading: " << files.begin()->string() << std::endl;
+						std::cerr << "error Reading ReadCacheDirectory files: " << files.begin()->string() << std::endl;
 					std::string TheLine;
 					if (std::getline(TheFile, TheLine))
 					{
@@ -1938,7 +1938,7 @@ void ReadLoggedData(const std::filesystem::path& filename)
 			if (ConsoleVerbosity > 0)
 				std::cout << "[" << getTimeISO8601(true) << "] Reading ReadLoggedData filename: " << filename.string() << std::endl;
 			else
-				std::cerr << "Reading: " << filename.string() << std::endl;
+				std::cerr << "error Reading ReadLoggedData filename: " << filename.string() << std::endl;
 			std::ifstream TheFile(filename);
 			if (TheFile.is_open())
 			{
@@ -2021,7 +2021,7 @@ bool ReadTitleMap(const std::filesystem::path& TitleMapFilename)
 				if (ConsoleVerbosity > 0)
 					std::cout << "[" << getTimeISO8601(true) << "] Reading TitleMapFilename: " << TitleMapFilename.string() << std::endl;
 				else
-					std::cerr << "Reading: " << TitleMapFilename.string() << std::endl;
+					std::cerr << "error Reading TitleMapFilename: " << TitleMapFilename.string() << std::endl;
 				std::string TheLine;
 
 				while (std::getline(TheFile, TheLine))
@@ -5826,7 +5826,7 @@ int main(int argc, char **argv)
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	if (ConsoleVerbosity > 0)
 	{
-		std::cout << "[" << getTimeISO8601(true) << "] " << ProgramVersionString << std::endl;
+		std::cout << "[" << getTimeISO8601(true) << "] ##### " << ProgramVersionString << std::endl;
 		if (ConsoleVerbosity > 1)
 		{
 			std::cout << "[                   ]      log: " << LogDirectory << std::endl;
