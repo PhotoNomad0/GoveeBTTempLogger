@@ -1912,6 +1912,12 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, const Govee_Temp& TheValue)
 		}
 	}
 }
+bool isTimeInFuture(const Govee_Temp& TheValue)
+{
+    time_t currentTime;
+    time(&currentTime);
+    return TheValue.Time > currentTime;
+}
 void ReadLoggedData(const std::filesystem::path& filename)
 {
 	const std::regex ModifiedBluetoothAddressRegex("[[:xdigit:]]{12}");
@@ -1958,8 +1964,12 @@ void ReadLoggedData(const std::filesystem::path& filename)
 					Govee_Temp TheValue(SortedLine);
 					if (TheValue.GetModel() == ThermometerType::Unknown)
 						TheValue.SetModel(CacheThermometerType);
-					if (TheValue.IsValid())
-						UpdateMRTGData(TheBlueToothAddress, TheValue);
+                    if (isTimeInFuture(TheValue)) {
+                        std::cerr << "ERROR ### [" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] Time in future detected, ignoring: " << timeToExcelLocal(TheValue.Time) << std::endl;
+                    } else {
+                        if (TheValue.IsValid())
+                            UpdateMRTGData(TheBlueToothAddress, TheValue);
+                    }
 				}
 			}
 		}
