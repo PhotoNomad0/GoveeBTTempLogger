@@ -1965,7 +1965,7 @@ void ReadLoggedData(const std::filesystem::path& filename)
 					if (TheValue.GetModel() == ThermometerType::Unknown)
 						TheValue.SetModel(CacheThermometerType);
                     if (isTimeInFuture(TheValue)) {
-                        std::cerr << "ERROR ### [" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] Time in future detected, ignoring: " << timeToExcelLocal(TheValue.Time) << std::endl;
+                        std::cerr << "ERROR ### [" << getTimeISO8601(true) << "] [" << SortedLine << "] Time in future detected, ignoring: " << timeToExcelLocal(TheValue.Time) << std::endl;
                     } else {
                         if (TheValue.IsValid())
                             UpdateMRTGData(TheBlueToothAddress, TheValue);
