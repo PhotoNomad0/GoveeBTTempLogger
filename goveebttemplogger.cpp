@@ -1966,12 +1966,12 @@ void ReadLoggedData(const std::filesystem::path& filename)
 						TheValue.SetModel(CacheThermometerType);
                     if (isTimeInFuture(TheValue)) {
                         std::cerr << "ERROR ### [" << SortedLine << "] Time in future detected, ignoring: " << timeToExcelLocal(TheValue.Time) << std::endl;
-                    } else if (TheValue.GetTemperature() > 100) {
-                       std::cerr << "ERROR ### [" << SortedLine << "] Hi temp detected, ignoring: " << TheValue.GetTemperature() << std::endl;
-                   } else if (TheValue.GetHumidity() > 110) {
-                       std::cerr << "ERROR ### [" << SortedLine << "] Hi humidity detected, ignoring: " << TheValue.GetHumidity() << std::endl;
-                   } else if (TheValue.GetBattery() > 110) {
-                       std::cerr << "ERROR ### [" << SortedLine << "] Hi battery detected, ignoring: " << TheValue.GetBattery() << std::endl;
+                    } else if (TheValue.GetTemperature() > 100 || TheValue.GetTemperature() < -50) {
+                       std::cerr << "ERROR ### [" << SortedLine << "] Invalid temp detected, ignoring: " << TheValue.GetTemperature() << std::endl;
+                   } else if (TheValue.GetHumidity() > 110 || TheValue.GetHumidity() < -10) {
+                       std::cerr << "ERROR ### [" << SortedLine << "] Invalid humidity detected, ignoring: " << TheValue.GetHumidity() << std::endl;
+                   } else if (TheValue.GetBattery() > 110 || TheValue.GetBattery() < -10) {
+                       std::cerr << "ERROR ### [" << SortedLine << "] Invalid battery detected, ignoring: " << TheValue.GetBattery() << std::endl;
                    } else {
                      if (TheValue.IsValid())
                        UpdateMRTGData(TheBlueToothAddress, TheValue);
