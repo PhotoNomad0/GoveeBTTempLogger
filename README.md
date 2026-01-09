@@ -370,3 +370,6 @@ Download from device: [D3:21:C4:06:25:0D] 2025-02-15 14:51:00 2025-03-02 20:44:0
 
 ## BTData directory contains Data Dumps
 The file btsnoop_hci.log is a Bluetooth hci snoop log from a Google Nexus 7 device running Android and the Govee Home App.
+
+## Temperature monitoring Program
+See notes in `showTemps.py`

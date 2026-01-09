@@ -18,8 +18,8 @@
 #  Notes:
 # - the server saves readings in `/var/log/goveebttemplogger`
 # - alarm settings are set in `limits`
-# - sensor configuration for monitoring is at /var/www/html/goveebttemplogger/gvh-titlemap.txt
-#
+# - sensor configuration for monitoring is at `/var/www/html/goveebttemplogger/gvh-titlemap.txt`
+# - adding new device - look in `/var/log/goveebttemplogger`, it will automatically detect and add the new device by UUID. Add title for it into `/var/www/html/goveebttemplogger/gvh-titlemap.txt` so that svg's are generated. 
 
 import os
 import sys
