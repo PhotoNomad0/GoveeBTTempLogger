@@ -81,7 +81,7 @@ limits = {
             "low": 40
         }
     },
-    "garden": {
+    "backdk": {
         "temp" : {
             "low": gardenLow
         }
