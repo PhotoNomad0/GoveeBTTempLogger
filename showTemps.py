@@ -16,6 +16,7 @@
 #  optional path to GoveeBTTempLogger log files
 #
 #  Notes:
+# - check other notes
 # - the server saves readings in `/var/log/goveebttemplogger`
 # - alarm settings are set in `limits`
 # - sensor configuration for monitoring is at `/var/www/html/goveebttemplogger/gvh-titlemap.txt`
