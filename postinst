@@ -7,14 +7,13 @@ exists() {
 }
 
 echo "`date --rfc-3339='seconds'` \033[36mHI I'M A POSTINST SCRIPT running \033[32m${0}\033[36m as \033[91m`whoami`\033[39m"
-adduser --system --ingroup www-data goveebttemplogger
+adduser --system goveebttemplogger
+adduser goveebttemplogger www-data
+adduser goveebttemplogger netdev
 mkdir --verbose --mode 0755 --parents /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
 chown --changes --recursive goveebttemplogger:www-data /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
 chmod --changes --recursive 0644 /var/log/goveebttemplogger/* /var/cache/goveebttemplogger/* /var/www/html/goveebttemplogger/*
 sudo setcap 'cap_net_raw,cap_net_admin+eip' /usr/local/bin/goveebttemplogger
-# These rfkill likes were added because Debian 13 (trixie) seemed to be soft blocking bluetooth by default
-rfkill --output-all
-rfkill unblock bluetooth
 # the next line doesn't handle multiple files existing, I created the function above that handles multiple files
 # if [ -f /var/log/goveebttemplogger/gvh507x_*.txt ]; then
 if exists /var/log/goveebttemplogger/gvh507x_*.txt; then

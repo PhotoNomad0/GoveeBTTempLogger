@@ -54,6 +54,7 @@
 //
 
 #include <algorithm>
+#include <cerrno>       // errno
 #include <cfloat>
 #include <climits>
 #include <cmath>
@@ -63,12 +64,14 @@
 #include <cstring>
 #include <ctime>
 #include <dbus/dbus.h> //  sudo apt install libdbus-1-dev
+#include <fcntl.h>      // open, O_NONBLOCK
 #include <filesystem>
 #include <fstream>
 #include <getopt.h>
 #include <iomanip>
 #include <iostream>
 #include <iterator>
+#include <linux/rfkill.h>
 #include <locale>
 #include <map>
 #include <netdb.h>
@@ -402,57 +405,74 @@ Govee_Temp::Govee_Temp(const std::string & data) // Read data from the Log File
 	// erase anything not a digit from the start of the line. nulls are occasionally in the log file when the platform crashed during a write to the logfile.
 	while (!std::isdigit(TheLine.peek()))
 		TheLine.get();
-	std::string theDay;
-	TheLine >> theDay;
-	std::string theHour;
-	TheLine >> theHour;
-	std::string theDate(theDay + " " + theHour);
-	Time = ISO8601totime(theDate);
-	TheLine >> Temperature[0];
-	TemperatureMin[0] = TemperatureMax[0] = Temperature[0];
-	TheLine >> Humidity;
-	HumidityMin = HumidityMax = Humidity;
-	TheLine >> Battery;
-	if (!TheLine.eof())
+	if (TheLine.eof()) // Quick check to make sure we didn't have a with only invalid characters
 	{
-		int theModel(0);
-		TheLine >> theModel;
-		switch (theModel)
-		{
-		case 5181:
-			Model = ThermometerType::H5181;
-			break;
-		case 5182:
-			Model = ThermometerType::H5182;
-			break;
-		case 5183:
-			Model = ThermometerType::H5183;
-			break;
-		case 5184:
-			Model = ThermometerType::H5184;
-			break;
-		case 5055:
-			Model = ThermometerType::H5055;
-			break;
-		default:
-			Model = ThermometerType::Unknown;
-		}
-		unsigned long index = 1;
-		while ((!TheLine.eof()) && (index < (sizeof(Temperature) / sizeof(Temperature[0]))))
-		{
-			TheLine >> Temperature[index];
-			TemperatureMin[index] = TemperatureMax[index] = Temperature[index];
-			index++;
-		}
+		Time = 0;
+		Temperature[0] = 0;
+		TemperatureMin[0] = DBL_MAX;
+		TemperatureMax[0] = -DBL_MAX;
+		Humidity = 0;
+		HumidityMin = DBL_MAX;
+		HumidityMax = -DBL_MAX;
+		Battery = INT_MAX;
+		Averages = 0;
+		Model = ThermometerType::Unknown;
+		return;
 	}
-	time_t timeNow(0);
-	time(&timeNow);
-	if (Time <= timeNow) // Only validate data from the past.
-		Averages = 1;
-	// h5074, h5075, h5100, h5179 Temperature Range = -20C to 60C
-	// h5103 Temperature Range = 0C to 50C
-	if (Temperature[0] < -20)
-		Averages = 0; // invalidate the data
+	else
+	{
+		std::string theDay;
+		TheLine >> theDay;
+		std::string theHour;
+		TheLine >> theHour;
+		std::string theDate(theDay + " " + theHour);
+		Time = ISO8601totime(theDate);
+		TheLine >> Temperature[0];
+		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];
+		TheLine >> Humidity;
+		HumidityMin = HumidityMax = Humidity;
+		TheLine >> Battery;
+		if (!TheLine.eof())
+		{
+			int theModel(0);
+			TheLine >> theModel;
+			switch (theModel)
+			{
+			case 5181:
+				Model = ThermometerType::H5181;
+				break;
+			case 5182:
+				Model = ThermometerType::H5182;
+				break;
+			case 5183:
+				Model = ThermometerType::H5183;
+				break;
+			case 5184:
+				Model = ThermometerType::H5184;
+				break;
+			case 5055:
+				Model = ThermometerType::H5055;
+				break;
+			default:
+				Model = ThermometerType::Unknown;
+			}
+			unsigned long index = 1;
+			while ((!TheLine.eof()) && (index < (sizeof(Temperature) / sizeof(Temperature[0]))))
+			{
+				TheLine >> Temperature[index];
+				TemperatureMin[index] = TemperatureMax[index] = Temperature[index];
+				index++;
+			}
+		}
+		time_t timeNow(0);
+		time(&timeNow);
+		if (Time <= timeNow) // Only validate data from the past.
+			Averages = 1;
+		// h5074, h5075, h5100, h5179 Temperature Range = -20C to 60C
+		// h5103 Temperature Range = 0C to 50C
+		if (Temperature[0] < -20)
+			Averages = 0; // invalidate the data
+	}
 }
 std::string Govee_Temp::WriteTXT(const char seperator) const
 {
@@ -5643,6 +5663,136 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 	return(rVal);
 }
 /////////////////////////////////////////////////////////////////////////////
+// https://www.kernel.org/doc/html/latest/driver-api/rfkill.html
+// Helper function to get rfkill type name
+const char* rfkillTypeName(const uint8_t type) 
+{
+	switch (type)
+	{
+	case RFKILL_TYPE_ALL: return "All";
+	case RFKILL_TYPE_WLAN: return "Wireless LAN";
+	case RFKILL_TYPE_BLUETOOTH: return "Bluetooth";
+	case RFKILL_TYPE_UWB: return "Ultra-Wideband";
+	case RFKILL_TYPE_WIMAX: return "WiMAX";
+	case RFKILL_TYPE_WWAN: return "Wireless WAN";
+	case RFKILL_TYPE_GPS: return "GPS";
+	case RFKILL_TYPE_FM: return "FM Radio";
+	default: return "Unknown";
+	}
+}
+
+// Function to check Bluetooth status
+bool rfkillisBluetoothSoftBlocked()
+{
+	bool result = false;
+	std::ostringstream ssOutput;
+	const char* rfkillPath = "/dev/rfkill";
+
+	// Open rfkill device in read-only, non-blocking mode
+	int fd = open(rfkillPath, O_RDONLY | O_NONBLOCK);
+	if (fd < 0)
+	{
+		if (ConsoleVerbosity > 0)
+			ssOutput << "[" << getTimeISO8601(true) << "] ";
+		ssOutput << rfkillPath << " Error opening for reading: " << strerror(errno) << std::endl;
+	}
+	else
+	{
+		struct rfkill_event event;
+		ssize_t len;
+
+		// Read all available events (non-blocking)
+		while (true)
+		{
+			len = read(fd, &event, sizeof(event));
+			if (len < 0)
+			{
+				if (errno == EAGAIN || errno == EWOULDBLOCK)
+				{
+					// No more data available
+					break;
+				}
+				else
+				{
+					if (ConsoleVerbosity > 0)
+						ssOutput << "[" << getTimeISO8601(true) << "] ";
+					ssOutput << rfkillPath << " Read error: " << strerror(errno) << std::endl;
+					break;
+				}
+			}
+
+			if (len != sizeof(event))
+			{
+				if (ConsoleVerbosity > 0)
+					ssOutput << "[" << getTimeISO8601(true) << "] ";
+				ssOutput << rfkillPath << " Short read from rfkill device." << std::endl;
+				break;
+			}
+
+			if (event.soft || event.hard || (ConsoleVerbosity > 1))
+			{
+				if (event.soft || event.hard)
+					result = true; // If any device is blocked, set result to true
+				// Print event info
+				if (ConsoleVerbosity > 0)
+					ssOutput << "[" << getTimeISO8601(true) << "] ";
+				ssOutput << rfkillPath << " " << static_cast<int>(event.idx)
+					<< " " << rfkillTypeName(event.type)
+					<< ", Blocked: " << ((event.soft || event.hard) ? "YES" : "NO")
+					<< " (Soft: " << (event.soft ? "yes" : "no")
+					<< ", Hard: " << (event.hard ? "yes" : "no") << ")"
+					<< std::endl;
+			}
+		}
+		close(fd);
+	}
+	if (ConsoleVerbosity > 0)
+		std::cout << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
+	return(result);
+}
+
+// Function to soft unblock Bluetooth
+bool rfkillUnblockBluetooth()
+{
+	bool result = false;
+	std::ostringstream ssOutput;
+	const char* rfkillPath = "/dev/rfkill";
+
+	// Open /dev/rfkill for writing in binary mode
+	std::ofstream rfkillFile(rfkillPath, std::ios::out | std::ios::binary);
+	if (!rfkillFile.is_open())
+	{
+		ssOutput << rfkillPath << " Error opening for writing." << std::endl;
+	}
+	else
+	{
+		struct rfkill_event event;
+		std::memset(&event, 0, sizeof(event));
+		event.op = RFKILL_OP_CHANGE_ALL;     // Change state
+		event.type = RFKILL_TYPE_BLUETOOTH;  // Target Bluetooth
+		event.soft = 0;                      // 0 = unblock, 1 = block
+
+		// Write the event to /dev/rfkill
+		rfkillFile.write(reinterpret_cast<const char*>(&event), sizeof(event));
+		if (!rfkillFile)
+		{
+			ssOutput << rfkillPath << " Error writing" << std::endl;
+		}
+		else
+		{
+			result = true;
+			ssOutput << rfkillPath << " Bluetooth soft unblock request sent successfully." << std::endl;
+		}
+	}
+	if (ConsoleVerbosity > 0)
+		std::cout << "[" << getTimeISO8601(true) << "] " << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
+	return(result);
+}
+/////////////////////////////////////////////////////////////////////////////
 static void usage(int argc, char **argv)
 {
 	std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
@@ -5881,6 +6031,9 @@ int main(int argc, char **argv)
 	ReadPersistenceFile(GoveeLastDownload, GoveeThermometers, "gvh-thermometer-types.txt");
 	if (UseBluetooth)
 	{
+		if (rfkillisBluetoothSoftBlocked()) // Check rfkill status before trying to use Bluetooth. This will print a message and exit if Bluetooth is blocked by rfkill
+			rfkillUnblockBluetooth(); // Try to unblock Bluetooth if it is blocked by rfkill. This will print a message and exit if it fails to unblock Bluetooth
+		rfkillisBluetoothSoftBlocked(); // Check rfkill status again after trying to unblock, to show the new status
 		if (!SVGDirectory.empty())
 		{
 			ReadCacheDirectory(); // if cache directory is configured, read it before reading all the normal logs
