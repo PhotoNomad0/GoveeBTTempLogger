@@ -603,7 +603,9 @@ while True:
                     tempMarker = redText + tempMarker
 
                 sensors[sensorId]['direction'] = tempMarker
-
+        else:
+            print(f'SKIPPING: Sensor {sensorId} is length {len(sensorId)}')
+            
     if ups:
         showUpsState()
 
