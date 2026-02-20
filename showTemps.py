@@ -548,7 +548,13 @@ while True:
             data0= ''
 
             if not simulate:
-                measurement = read_last_line(file)
+                print("reading", file)
+                try:
+                    measurement = read_last_line(file)
+                except Exception as e:
+                    print(f"An error occurred: {e} doing read_last_line() of {file}")
+                    continue
+
             if measurement:
                 try:
                     data = measurement.strip().split('\t')
