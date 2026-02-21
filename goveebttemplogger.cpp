@@ -1963,8 +1963,8 @@ void ReadLoggedData(const std::filesystem::path& filename)
 		{
 			if (ConsoleVerbosity > 0)
 				std::cout << "[" << getTimeISO8601(true) << "] Reading ReadLoggedData filename: " << filename.string() << std::endl;
-			else
-				std::cerr << "error Reading ReadLoggedData filename: " << filename.string() << std::endl;
+//			else
+//				std::cerr << "error Reading ReadLoggedData filename: " << filename.string() << std::endl;
 			std::ifstream TheFile(filename);
 			if (TheFile.is_open())
 			{
