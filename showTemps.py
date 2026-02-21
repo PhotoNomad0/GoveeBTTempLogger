@@ -544,6 +544,7 @@ while True:
             sensors[sensorId] = {}
 
         if len(sensorId) == 12:
+            sensors[sensorId]['sensorId'] = sensorId
             data = ''
             data0= ''
 
@@ -569,6 +570,8 @@ while True:
                     battery = data[3]
                     sampleTime = time_.astimezone()
                 except Exception as e:
+                    print(f"An error occurred")
+                    print(f"An error occurred: {e}")
                     print(f"An error occurred: {e} parsing {file}, line='{data0}' data='{data}'")
                     continue
 
@@ -644,7 +647,7 @@ while True:
             line = blackText + tempStr + '\t' + humidityStr + '\t' + battery + '\t' + blackText + sensorLabel + '\t' + sampleTimeStr + blackText
             print(line)
         else:
-            print(f'SKIPPING: Sensor {sensorId} is empty {s}')
+            print(f'SKIPPING: Sensor is empty {s}')
 
     if timeout and system:
         restartMeasurementService()
