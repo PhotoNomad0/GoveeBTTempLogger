@@ -643,6 +643,8 @@ while True:
             humidityStr = humidityState + humidity_ + '%'
             line = blackText + tempStr + '\t' + humidityStr + '\t' + battery + '\t' + blackText + sensorLabel + '\t' + sampleTimeStr + blackText
             print(line)
+        else:
+            print(f'SKIPPING: Sensor {sensorId} is empty {s}')
 
     if timeout and system:
         restartMeasurementService()
