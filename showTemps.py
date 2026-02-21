@@ -553,7 +553,8 @@ while True:
                 try:
                     measurement = read_last_line(file)
                 except Exception as e:
-                    print(f"An error occurred: {e} doing read_last_line() of {file}")
+                    print(f"An error occurred: {e} doing read_last_line() of {file}",
+                          file=sys.stderr, flush=True)
                     continue
 
             if measurement:
@@ -570,9 +571,8 @@ while True:
                     battery = data[3]
                     sampleTime = time_.astimezone()
                 except Exception as e:
-                    print(f"An error occurred")
-                    print(f"An error occurred: {e}")
-                    print(f"An error occurred: {e} parsing {file}, line='{data0}' data='{data}'")
+                    print(f"An error occurred: {e} parsing {file}, line='{data0}' data='{data}'",
+                          file=sys.stderr, flush=True)
                     continue
 
                 sensors[sensorId]['date'] = sampleTime
