@@ -549,7 +549,7 @@ while True:
             data0= ''
 
             if not simulate:
-                print("reading", file)
+                # print("reading", file)
                 try:
                     measurement = read_last_line(file)
                 except Exception as e:
@@ -606,6 +606,10 @@ while True:
                     tempMarker = redText + tempMarker
 
                 sensors[sensorId]['direction'] = tempMarker
+
+            else:
+                print(f"Empty measurement Sensor {sensorId} doing read_last_line() of {file}")
+
         else:
             print(f'SKIPPING: Sensor {sensorId} is length {len(sensorId)}')
             
@@ -646,6 +650,7 @@ while True:
             humidityStr = humidityState + humidity_ + '%'
             line = blackText + tempStr + '\t' + humidityStr + '\t' + battery + '\t' + blackText + sensorLabel + '\t' + sampleTimeStr + blackText
             print(line)
+            
         else:
             print(f'SKIPPING: Sensor is empty {s}')
 
