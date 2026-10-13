@@ -290,14 +290,14 @@ def latest_files(file_list):
 
 def read_last_line(file_path):
     global debug
+
+    print(f"Last line for file {file_path} is")
     data = read_end_file(file_path)
     if debug:
-        logInfo(f"Last line for file {file_path} is")
-
         if data:
-            logInfo(data[:256])
+            print(data[:256])
         else:
-            logInfo("Null")
+            print("Null")
 
     line = extract_last_line(data)
     return line
