@@ -303,11 +303,6 @@ def read_last_line(file_path):
     line = extract_last_line(data)
     return line
 
-debug = True
-data = read_last_line('/var/log/goveebttemplogger/gvh-A4C1387C05A8-2026-10.txt')
-data = read_last_line('./test-data/gvh-A4C1387C05A8-2026-10.txt')
-print(data)
-
 def convert_celsius_to_fahrenheit(celsius):
     fahrenheit = (celsius * 1.8) + 32
     return fahrenheit
@@ -382,6 +377,12 @@ if len(sys.argv) > idx + 1:
     logInfo(f"Starting APP - Folder path on command line is: {folder_path}")
 else:
     logInfo(f"Starting APP - Default Folder path is: {folder_path}")
+
+if debug:
+    print("Debug mode is on")
+    data = read_last_line('/var/log/goveebttemplogger/gvh-A4C1387C05A8-2026-10.txt')
+    data = read_last_line('./test-data/gvh-A4C1387C05A8-2026-10.txt')
+    print(data)
 
 if simulate:
     sensorsData = simulate[0]
