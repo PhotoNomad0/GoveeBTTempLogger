@@ -43,6 +43,29 @@ whiteText = '\033[37m'
 whiteBackground = '\033[47m'
 clearScreen = '\033[2J'
 
+
+folder_path = "/var/log/goveebttemplogger"
+
+system = False
+backup = False
+debug = False
+ups = True
+upsMeasureCnt = 0
+upsChargeCnt = 0
+upsPowerOffCnt = 0
+upsFaultCnt = 0
+upsLastState = ''
+upsInFault = False
+lastUpsError = None
+idx = 0
+backupInterval = 0
+backupCount = 0
+defaultBackupTime = 60 * 60 * 2  # 2 hours
+sleepTime = 60 # interval between display updates in seconds
+averageAmount = 60 # number of intervals to average
+quietTempDeltaThreshold = 0.2
+activeTempDeltaThreshold = 0.5
+
 def getLogFileName():
     """
     Calculates a log file name based on the current date
@@ -269,7 +292,13 @@ def read_last_line(file_path):
     global debug
     data = read_end_file(file_path)
     if debug:
-        logInfo(f"Last line for file {file_path} is {data[:256]}")
+        logInfo(f"Last line for file {file_path} is")
+
+        if data:
+            logInfo(data[:256])
+        else:
+            logInfo("Null")
+
     line = extract_last_line(data)
     return line
 
@@ -301,31 +330,8 @@ def findMatch(params, paramKey, matchPrefix=False):
     return False
 
 
-folder_path = "/var/log/goveebttemplogger"
-
-system = False
-backup = False
-debug = False
-ups = True
-upsMeasureCnt = 0
-upsChargeCnt = 0
-upsPowerOffCnt = 0
-upsFaultCnt = 0
-upsLastState = ''
-upsInFault = False
-lastUpsError = None
-idx = 0
-backupInterval = 0
-backupCount = 0
-defaultBackupTime = 60 * 60 * 2  # 2 hours
-sleepTime = 60 # interval between display updates in seconds
-averageAmount = 60 # number of intervals to average
-quietTempDeltaThreshold = 0.2
-activeTempDeltaThreshold = 0.5
-
-
 def setBackupInterval(backupIntervalSecs):
-    global backup, backupCount, idx, sleepTime, backupInterval, debug
+    global backup, backupCount, idx, sleepTime, backupInterval
     idx += 1  # increment pointer to folder path
     backup = True
     backupInterval = int(backupIntervalSecs / sleepTime)
@@ -349,7 +355,7 @@ if len(sys.argv) > 1:
         adjustmentRatio = (sleepTime / sleepTime_)
         averageAmount_ = averageAmount * adjustmentRatio  # adjust the averaging amount proportionally to change in sleeptime
         sleepTime = sleepTime_
-        logInfo(f"Average ammount changed from {averageAmount} to {averageAmount_}")
+        logInfo(f"Average amount changed from {averageAmount} to {averageAmount_}")
         averageAmount = averageAmount_
         if backupInterval != 0:
             backupInterval_ = backupInterval * adjustmentRatio
