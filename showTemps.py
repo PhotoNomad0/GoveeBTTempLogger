@@ -298,12 +298,14 @@ def read_last_line(file_path):
             print(data[:256])
         else:
             print("Null")
+            return None
 
     line = extract_last_line(data)
     return line
 
 debug = True
 data = read_last_line('/var/log/goveebttemplogger/gvh-A4C1387C05A8-2026-10.txt')
+data = read_last_line('./test-data/gvh-A4C1387C05A8-2026-10.txt')
 print(data)
 
 def convert_celsius_to_fahrenheit(celsius):
