@@ -266,7 +266,10 @@ def latest_files(file_list):
 
 
 def read_last_line(file_path):
+    global debug
     data = read_end_file(file_path)
+    if debug:
+        logInfo(f"Last line for file {file_path} is {data[:256]}")
     line = extract_last_line(data)
     return line
 
@@ -302,6 +305,7 @@ folder_path = "/var/log/goveebttemplogger"
 
 system = False
 backup = False
+debug = False
 ups = True
 upsMeasureCnt = 0
 upsChargeCnt = 0
@@ -321,7 +325,7 @@ activeTempDeltaThreshold = 0.5
 
 
 def setBackupInterval(backupIntervalSecs):
-    global backup, backupCount, idx, sleepTime, backupInterval
+    global backup, backupCount, idx, sleepTime, backupInterval, debug
     idx += 1  # increment pointer to folder path
     backup = True
     backupInterval = int(backupIntervalSecs / sleepTime)
@@ -351,6 +355,10 @@ if len(sys.argv) > 1:
             backupInterval_ = backupInterval * adjustmentRatio
             logInfo(f"Backup interval adjusted from {backupInterval} to {backupInterval_}")
             backupInterval = backupInterval_
+
+    if findMatch(sys.argv, '--debug'):
+        debug = True
+        logInfo(f"Debug turned on")
 
     if findMatch(sys.argv, '--backup'):
         setBackupInterval(defaultBackupTime)
