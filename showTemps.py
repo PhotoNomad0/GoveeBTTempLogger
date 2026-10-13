@@ -302,9 +302,9 @@ def read_last_line(file_path):
     line = extract_last_line(data)
     return line
 
-# data = read_last_line('./test-data/gvh-A4C138A06791-2023-12-short.txt')
-# print(data)
-# exit()
+debug = True
+data = read_last_line('/var/log/goveebttemplogger/gvh-A4C1387C05A8-2026-10.txt')
+print(data)
 
 def convert_celsius_to_fahrenheit(celsius):
     fahrenheit = (celsius * 1.8) + 32
