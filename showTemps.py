@@ -361,6 +361,7 @@ if len(sys.argv) > 1:
 
     if findMatch(sys.argv, '--debug'):
         debug = True
+        idx += 1  # increment pointer to folder path
         logInfo(f"Debug turned on")
 
     if findMatch(sys.argv, '--backup'):
@@ -547,6 +548,8 @@ while True:
     if files != files_: # see if changed
         files = files_
         logging.info(F"Data Files found in path: {files}")
+    else:
+        logging.info(F"Data Files not found in path: {folder_path}")
 
     for file in files:
         measurement = None
