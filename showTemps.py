@@ -607,6 +607,10 @@ while True:
                     humidityStr = "{:.0f}".format(humidity)
                     battery = data[3]
                     sampleTime = time_.astimezone()
+                    
+                    if debug:
+                        print(time_,"='", sampleTime, "'")
+
                 except Exception as e:
                     print(f"An error occurred: {e} parsing {file}, line='{data0}' data='{data}'",
                           file=sys.stderr, flush=True)
