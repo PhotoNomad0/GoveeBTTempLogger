@@ -608,7 +608,7 @@ while True:
                     humidity = float(data[2])
                     humidityStr = "{:.0f}".format(humidity)
                     battery = data[3]
-                    sampleTime = time_ # already local time
+                    sampleTime = time_.astimezone()
                     
                     if debug:
                         print(time_,"='", sampleTime, "'")
