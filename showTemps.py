@@ -301,8 +301,9 @@ def read_last_line(file_path):
             return None
 
     line = extract_last_line(data)
+
     if debug:
-        print(f"Last line for file {file_path} is ${line}")
+        print(f"Last line for file {file_path} is `{line}`")
 
     return line
 
@@ -588,9 +589,17 @@ while True:
             if measurement:
                 try:
                     data = measurement.strip().split('\t')
-                    # print(file,"='", measurement, "'")
+                    
+                    if debug:
+                        print(file,"='", measurement, "'")
+                        print("data='", data, "'")
+
                     data0 = data[0]
                     time_ = datetime.strptime(data0, date_format).replace(tzinfo=timezone.utc)
+                                                            
+                    if debug:
+                        print(data0,"='", time_, "'")
+
                     temp = float(data[1])
                     temp = convert_celsius_to_fahrenheit(temp)
                     tempStr = "{:.1f}".format(temp)
