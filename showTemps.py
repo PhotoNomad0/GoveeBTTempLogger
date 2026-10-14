@@ -450,15 +450,20 @@ def backupData():
 def getUps(cmd):
     global lastUpsError
 
-    command = "upsc myups@localhost " + cmd
-    results = runCommand(command, "UPS State: " + cmd, True)
-    if results != False:
-        data = results.strip().split(': ')[0]
-    else:
+    try:
+        command = "upsc myups@localhost " + cmd
+        results = runCommand(command, "UPS State: " + cmd, True)
+        if results != False:
+            data = results.strip().split(': ')[0]
+        else:
+            data = 'Read Error'
+            if lastUpsError != lastCommandError:
+                logError('new UPS read ERROR: ' + lastCommandError)
+            lastUpsError = lastCommandError
+
+    except Exception as e:
         data = 'Read Error'
-        if lastUpsError != lastCommandError:
-            logError('new UPS read ERROR: ' + lastCommandError)
-        lastUpsError = lastCommandError
+        logError(f"An exception occurred reading UPS state '{cmd}': {e}")
 
     return data
 
