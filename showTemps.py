@@ -291,7 +291,7 @@ def latest_files(file_list):
 def read_last_line(file_path):
     global debug
 
-    print(f"Last line for file {file_path} is")
+    print(f"Last block for file {file_path} is")
     data = read_end_file(file_path)
     if debug:
         if data:
@@ -301,6 +301,9 @@ def read_last_line(file_path):
             return None
 
     line = extract_last_line(data)
+    if debug:
+        print(f"Last line for file {file_path} is ${line}")
+
     return line
 
 def convert_celsius_to_fahrenheit(celsius):
