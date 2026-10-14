@@ -291,7 +291,9 @@ def latest_files(file_list):
 def read_last_line(file_path):
     global debug
 
-    print(f"Last block for file {file_path} is")
+    if debug:
+        print(f"Last block for file {file_path} is")
+
     data = read_end_file(file_path)
     if debug:
         if data:
