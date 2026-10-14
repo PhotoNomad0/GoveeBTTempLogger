@@ -595,7 +595,7 @@ while True:
                         print("data='", data, "'")
 
                     data0 = data[0]
-                    time_ = datetime.strptime(data0, date_format).replace(tzinfo=timezone.utc)
+                    time_ = datetime.strptime(data0, date_format).astimezone()
                                                             
                     if debug:
                         print(data0,"='", time_, "'")
@@ -606,7 +606,7 @@ while True:
                     humidity = float(data[2])
                     humidityStr = "{:.0f}".format(humidity)
                     battery = data[3]
-                    sampleTime = time_.astimezone()
+                    sampleTime = time_ # already local time
                     
                     if debug:
                         print(time_,"='", sampleTime, "'")
